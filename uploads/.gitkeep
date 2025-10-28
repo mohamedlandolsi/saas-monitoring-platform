@@ -1,0 +1,2 @@
+# This file ensures the uploads directory is tracked by git
+# Place your CSV and JSON log files in this directory

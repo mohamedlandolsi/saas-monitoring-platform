@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Log Monitoring Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,.1);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card {
+            padding: 1.5rem;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .service-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .refresh-indicator {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .loading .loading-spinner {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="bi bi-graph-up"></i> SaaS Log Monitoring Platform
+            </span>
+            <div>
+                <a href="/search" class="btn btn-outline-light btn-sm me-2">
+                    <i class="bi bi-search"></i> Search Logs
+                </a>
+                <a href="/upload" class="btn btn-outline-light btn-sm me-2">
+                    <i class="bi bi-cloud-upload"></i> Upload Logs
+                </a>
+                <span class="text-white refresh-indicator">
+                    <i class="bi bi-arrow-clockwise"></i> Auto-refresh: 30s
+                    <span class="spinner-border spinner-border-sm ms-2 loading-spinner" role="status"></span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <!-- System Health Status -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="bi bi-heart-pulse"></i> System Health
+                        </h5>
+                        <div class="row text-center" id="health-status">
+                            <div class="col-md-4 mb-3">
+                                <div class="service-icon">
+                                    <i class="bi bi-search text-info"></i>
+                                </div>
+                                <h6>Elasticsearch</h6>
+                                <span class="status-badge" id="es-status">Checking...</span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="service-icon">
+                                    <i class="bi bi-database text-success"></i>
+                                </div>
+                                <h6>MongoDB</h6>
+                                <span class="status-badge" id="mongo-status">Checking...</span>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="service-icon">
+                                    <i class="bi bi-lightning text-danger"></i>
+                                </div>
+                                <h6>Redis</h6>
+                                <span class="status-badge" id="redis-status">Checking...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="text-center">
+                        <i class="bi bi-file-text service-icon text-primary"></i>
+                        <div class="stat-value" id="total-logs">0</div>
+                        <div class="stat-label">Total Logs</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="text-center">
+                        <i class="bi bi-folder service-icon text-success"></i>
+                        <div class="stat-value" id="total-indices">0</div>
+                        <div class="stat-label">Indices</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="text-center">
+                        <i class="bi bi-hdd service-icon text-warning"></i>
+                        <div class="stat-value" id="cluster-status">-</div>
+                        <div class="stat-label">Cluster Status</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="text-center">
+                        <i class="bi bi-clock service-icon text-info"></i>
+                        <div class="stat-value" id="last-update">-</div>
+                        <div class="stat-label">Last Update</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="bi bi-link-45deg"></i> Quick Links
+                        </h5>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <a href="http://localhost:5601" target="_blank" class="btn btn-outline-primary">
+                                <i class="bi bi-bar-chart"></i> Open Kibana
+                            </a>
+                            <a href="http://localhost:9200" target="_blank" class="btn btn-outline-success">
+                                <i class="bi bi-search"></i> Elasticsearch API
+                            </a>
+                            <button class="btn btn-outline-secondary" onclick="refreshData()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center text-muted py-3">
+            <small>SaaS Application Log Monitoring Platform | ELK Stack 8.11 | Docker Compose</small>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-refresh interval (30 seconds)
+        const REFRESH_INTERVAL = 30000;
+        let refreshTimer;
+
+        // Fetch health status
+        async function fetchHealthStatus() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                // Update Elasticsearch status
+                updateStatus('es-status', data.elasticsearch);
+                
+                // Update MongoDB status
+                updateStatus('mongo-status', data.mongodb);
+                
+                // Update Redis status
+                updateStatus('redis-status', data.redis);
+                
+            } catch (error) {
+                console.error('Failed to fetch health status:', error);
+            }
+        }
+
+        // Fetch statistics
+        async function fetchStats() {
+            try {
+                document.body.classList.add('loading');
+                
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                // Update total logs
+                document.getElementById('total-logs').textContent = 
+                    data.total_logs.toLocaleString();
+                
+                // Update indices count
+                document.getElementById('total-indices').textContent = 
+                    data.indices.length;
+                
+                // Update cluster status
+                const statusEl = document.getElementById('cluster-status');
+                statusEl.textContent = data.cluster_status.toUpperCase();
+                statusEl.style.color = getClusterStatusColor(data.cluster_status);
+                
+                // Update last update time
+                document.getElementById('last-update').textContent = 
+                    new Date().toLocaleTimeString();
+                
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+                document.getElementById('total-logs').textContent = 'Error';
+            } finally {
+                document.body.classList.remove('loading');
+            }
+        }
+
+        // Update status badge
+        function updateStatus(elementId, isOnline) {
+            const element = document.getElementById(elementId);
+            if (isOnline) {
+                element.textContent = 'Online';
+                element.className = 'status-badge status-online';
+            } else {
+                element.textContent = 'Offline';
+                element.className = 'status-badge status-offline';
+            }
+        }
+
+        // Get color for cluster status
+        function getClusterStatusColor(status) {
+            switch (status.toLowerCase()) {
+                case 'green':
+                    return '#28a745';
+                case 'yellow':
+                    return '#ffc107';
+                case 'red':
+                    return '#dc3545';
+                default:
+                    return '#6c757d';
+            }
+        }
+
+        // Refresh all data
+        function refreshData() {
+            fetchHealthStatus();
+            fetchStats();
+        }
+
+        // Initialize auto-refresh
+        function startAutoRefresh() {
+            refreshData();
+            refreshTimer = setInterval(refreshData, REFRESH_INTERVAL);
+        }
+
+        // Stop auto-refresh (cleanup)
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            startAutoRefresh();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopAutoRefresh();
+        });
+    </script>
+</body>
+</html>

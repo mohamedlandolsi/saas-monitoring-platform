@@ -110,7 +110,7 @@
             <span class="navbar-brand mb-0 h1">
                 <i class="bi bi-graph-up"></i> SaaS Log Monitoring Platform
             </span>
-            <div>
+            <div class="d-flex align-items-center">
                 <a href="/search" class="btn btn-outline-light btn-sm me-2">
                     <i class="bi bi-search"></i> Search Logs
                 </a>
@@ -126,6 +126,25 @@
                 <span class="text-white refresh-indicator">
                     <span class="spinner-border spinner-border-sm ms-2 loading-spinner" role="status"></span>
                 </span>
+                
+                {% if user %}
+                <!-- Logged in user -->
+                <div class="dropdown ms-3">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> {{ user.username }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="logout(); return false;"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+                {% else %}
+                <!-- Not logged in -->
+                <a href="/login" class="btn btn-light btn-sm ms-3">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -332,6 +351,27 @@
         // Auto-refresh interval (30 seconds)
         const REFRESH_INTERVAL = 30000;
         let refreshTimer;
+
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    window.location.href = '/login?message=logged_out';
+                } else {
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed. Please try again.');
+            }
+        }
 
         // Fetch health status
         async function fetchHealthStatus() {

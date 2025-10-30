@@ -2,7 +2,8 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, Any, List, Tuple
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from functools import wraps
+from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
 from flask_cors import CORS
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient
@@ -14,6 +15,7 @@ import time
 from models.file import File
 from models.search_history import SearchHistory
 from models.saved_search import SavedSearch
+from models.user import User
 from utils.cache import CacheManager, cache_result, invalidate_cache
 from utils.errors import (
     AppError, ValidationError, DatabaseError, CacheError, 
@@ -23,6 +25,11 @@ from utils.errors import (
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure secret key for sessions
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SESSION_TYPE'] = 'redis'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
 
 # ============================================================================
 # Logging Configuration
@@ -181,12 +188,14 @@ redis_client = init_redis()
 file_model = None
 search_history_model = None
 saved_search_model = None
+user_model = None
 
 if mongo_client:
     try:
         file_model = File(mongo_client)
         search_history_model = SearchHistory(mongo_client)
         saved_search_model = SavedSearch(mongo_client)
+        user_model = User(mongo_client)
         app.logger.info("✓ Models initialized successfully")
     except Exception as e:
         app.logger.error(f"✗ Error initializing models: {str(e)}")
@@ -278,6 +287,81 @@ def handle_generic_error(error):
     return render_template('500.html'), 500
 
 # ============================================================================
+# Authentication Helpers
+# ============================================================================
+
+def get_current_user() -> Optional[Dict[str, Any]]:
+    """
+    Get the current logged-in user from session.
+    
+    Returns:
+        Dict: User document if logged in, None otherwise
+    """
+    user_id = session.get('user_id')
+    if not user_id or not user_model:
+        return None
+    
+    return user_model.get_by_id(user_id)
+
+def login_required(f):
+    """
+    Decorator to protect routes that require authentication.
+    
+    If user is not logged in:
+    - For HTML pages: redirect to /login
+    - For API endpoints: return 401 JSON error
+    
+    Usage:
+        @app.route('/protected')
+        @login_required
+        def protected():
+            return 'Only logged in users see this'
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        
+        if not user:
+            # Check if this is an API request
+            if request.path.startswith('/api/'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Authentication required',
+                    'message': 'Please log in to access this resource'
+                }), 401
+            
+            # For HTML pages, redirect to login
+            return redirect(url_for('login_page', next=request.url))
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+def create_session(user_id: str, remember_me: bool = False) -> None:
+    """
+    Create a session for the user.
+    
+    Args:
+        user_id: User document ID
+        remember_me: If True, session persists for 30 days; otherwise 1 hour
+    """
+    session['user_id'] = user_id
+    session['logged_in'] = True
+    
+    if remember_me:
+        session.permanent = True
+        # Set to 30 days
+        app.config['PERMANENT_SESSION_LIFETIME'] = 30 * 24 * 3600
+    else:
+        session.permanent = False
+
+def destroy_session() -> None:
+    """
+    Destroy the current session (logout).
+    """
+    session.clear()
+
+# ============================================================================
 # Routes
 # ============================================================================
 
@@ -289,7 +373,8 @@ def index():
     Returns:
         str: Rendered HTML template for the dashboard
     """
-    return render_template('index.html')
+    user = get_current_user()
+    return render_template('index.html', user=user)
 
 @app.route('/search')
 def search():
@@ -299,17 +384,294 @@ def search():
     Returns:
         str: Rendered HTML template for log search interface
     """
-    return render_template('search.html')
+    user = get_current_user()
+    return render_template('search.html', user=user)
 
 @app.route('/upload')
+@login_required
 def upload():
     """
     Render the file upload page.
     
+    Requires authentication.
+    
     Returns:
         str: Rendered HTML template for file upload interface
     """
-    return render_template('upload.html')
+    user = get_current_user()
+    return render_template('upload.html', user=user)
+
+@app.route('/files')
+@login_required
+def files_page():
+    """
+    Render the files management page.
+    
+    Requires authentication.
+    
+    Returns:
+        str: Rendered HTML template for files management
+    """
+    user = get_current_user()
+    return render_template('files.html', user=user)
+
+@app.route('/login')
+def login_page():
+    """
+    Render the login page.
+    
+    If already logged in, redirect to dashboard.
+    
+    Returns:
+        str: Rendered HTML template for login form
+    """
+    # If already logged in, redirect to dashboard
+    if get_current_user():
+        return redirect(url_for('index'))
+    
+    return render_template('login.html')
+
+# ============================================================================
+# Authentication API Endpoints
+# ============================================================================
+
+@app.route('/api/login', methods=['POST'])
+def api_login() -> Tuple[Dict[str, Any], int]:
+    """
+    Authenticate user and create session.
+    
+    Request Body:
+        {
+            "username": str,      # Username or email
+            "password": str,      # Plain text password
+            "remember_me": bool   # Optional: persist session for 30 days
+        }
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with user info and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "message": "Login successful",
+            "user": {
+                "_id": str,
+                "username": str,
+                "email": str,
+                "full_name": str
+            }
+        }
+    
+    Raises:
+        ValidationError: If required fields are missing
+        DatabaseError: If authentication fails
+    """
+    if not user_model:
+        app.logger.error("Login failed: User model not initialized")
+        raise DatabaseError('User authentication not available', operation='login')
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            raise ValidationError('Request body is required', field='body')
+        
+        # Extract credentials
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        remember_me = data.get('remember_me', False)
+        
+        if not username:
+            raise ValidationError('Username or email is required', field='username')
+        
+        if not password:
+            raise ValidationError('Password is required', field='password')
+        
+        # Authenticate user
+        user = user_model.authenticate(username, password)
+        
+        if not user:
+            app.logger.warning(f"Failed login attempt for username: {username} from {request.remote_addr}")
+            raise ValidationError(
+                'Invalid username or password',
+                field='credentials',
+                details={'username': username}
+            )
+        
+        # Create session
+        create_session(user['_id'], remember_me)
+        
+        app.logger.info(f"User logged in: {user['username']} ({user['_id']}) from {request.remote_addr}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Login successful',
+            'user': {
+                '_id': user['_id'],
+                'username': user['username'],
+                'email': user['email'],
+                'full_name': user.get('full_name', '')
+            }
+        }), 200
+        
+    except (ValidationError, DatabaseError):
+        raise
+    except Exception as e:
+        app.logger.error(f"Login error: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'An error occurred during login',
+            operation='login',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout() -> Tuple[Dict[str, Any], int]:
+    """
+    Logout user and destroy session.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with logout status and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "message": "Logout successful"
+        }
+    """
+    user = get_current_user()
+    
+    if user:
+        app.logger.info(f"User logged out: {user['username']} ({user['_id']}) from {request.remote_addr}")
+    
+    destroy_session()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Logout successful'
+    }), 200
+
+@app.route('/api/register', methods=['POST'])
+def api_register() -> Tuple[Dict[str, Any], int]:
+    """
+    Register a new user account.
+    
+    Request Body:
+        {
+            "username": str,    # Required: unique username
+            "email": str,       # Required: unique email
+            "password": str,    # Required: plain text password (will be hashed)
+            "full_name": str    # Optional: user's full name
+        }
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with registration status and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "message": "Registration successful",
+            "user_id": str
+        }
+    
+    Raises:
+        ValidationError: If required fields are missing or invalid
+        DatabaseError: If registration fails
+    """
+    if not user_model:
+        app.logger.error("Registration failed: User model not initialized")
+        raise DatabaseError('User registration not available', operation='register')
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            raise ValidationError('Request body is required', field='body')
+        
+        # Extract and validate fields
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        full_name = data.get('full_name', '').strip()
+        
+        if not username:
+            raise ValidationError('Username is required', field='username')
+        
+        if not email:
+            raise ValidationError('Email is required', field='email')
+        
+        if not password:
+            raise ValidationError('Password is required', field='password')
+        
+        # Validate password strength (minimum 6 characters)
+        if len(password) < 6:
+            raise ValidationError(
+                'Password must be at least 6 characters long',
+                field='password'
+            )
+        
+        # Create user
+        try:
+            user_id = user_model.create(
+                username=username,
+                email=email,
+                password=password,
+                full_name=full_name
+            )
+        except ValueError as e:
+            # Handle duplicate username/email
+            raise ValidationError(str(e), field='username')
+        
+        if not user_id:
+            raise DatabaseError('Failed to create user', operation='register')
+        
+        app.logger.info(f"New user registered: {username} ({user_id}) from {request.remote_addr}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Registration successful',
+            'user_id': user_id
+        }), 201
+        
+    except (ValidationError, DatabaseError):
+        raise
+    except Exception as e:
+        app.logger.error(f"Registration error: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'An error occurred during registration',
+            operation='register',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/user/current', methods=['GET'])
+@login_required
+def api_current_user() -> Tuple[Dict[str, Any], int]:
+    """
+    Get current logged-in user information.
+    
+    Requires authentication.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with user info and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "user": {
+                "_id": str,
+                "username": str,
+                "email": str,
+                "full_name": str,
+                "created_at": str,
+                "last_login": str
+            }
+        }
+    """
+    user = get_current_user()
+    
+    return jsonify({
+        'success': True,
+        'user': user
+    }), 200
 
 @app.route('/api/health')
 def health_check() -> Tuple[Dict[str, Any], int]:
@@ -1227,11 +1589,6 @@ def get_search_stats():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/files')
-def files_page():
-    """Render files management page"""
-    return render_template('files.html')
 
 @app.route('/api/files', methods=['GET'])
 @cache_result(timeout=600, key_prefix="files")

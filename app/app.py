@@ -7,6 +7,9 @@ from redis import Redis
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import json
+import time
+from models.file import File
+from models.search_history import SearchHistory
 
 app = Flask(__name__)
 CORS(app)
@@ -71,6 +74,18 @@ def init_redis():
 es_client = init_elasticsearch()
 mongo_client = init_mongodb()
 redis_client = init_redis()
+
+# Initialize models
+file_model = None
+search_history_model = None
+
+if mongo_client:
+    try:
+        file_model = File(mongo_client)
+        search_history_model = SearchHistory(mongo_client)
+        print("✓ Models initialized successfully")
+    except Exception as e:
+        print(f"✗ Error initializing models: {str(e)}")
 
 @app.route('/')
 def index():
@@ -481,7 +496,9 @@ def search_logs():
         }
         
         # Execute search
+        start_time = time.time()
         response = es_client.search(index='saas-logs-*', body=search_body)
+        execution_time_ms = (time.time() - start_time) * 1000
         
         # Format results
         hits = response['hits']['hits']
@@ -502,6 +519,32 @@ def search_logs():
                 'user_id': source.get('user_id'),
                 'client_ip': source.get('client_ip')
             })
+        
+        # Save search history
+        if search_history_model:
+            try:
+                filters_used = {
+                    'level': level if level else None,
+                    'status_code': status_code if status_code else None,
+                    'server': server if server else None,
+                    'endpoint': endpoint if endpoint else None,
+                    'date_from': date_from if date_from else None,
+                    'date_to': date_to if date_to else None,
+                    'page': page,
+                    'per_page': per_page
+                }
+                # Remove None values
+                filters_used = {k: v for k, v in filters_used.items() if v is not None}
+                
+                search_history_model.save(
+                    query=q,
+                    filters=filters_used,
+                    user=request.remote_addr,  # Use IP as user identifier
+                    results_count=total,
+                    execution_time_ms=execution_time_ms
+                )
+            except Exception as e:
+                print(f"Error saving search history: {str(e)}")
         
         return jsonify({
             'results': results,
@@ -754,28 +797,22 @@ def upload_file():
         except:
             log_count = 0
         
-        # Store metadata in MongoDB
-        file_metadata = {
-            'filename': original_filename,
-            'saved_as': unique_filename,
-            'file_type': file_extension,
-            'file_size': file_size,
-            'upload_date': datetime.utcnow().isoformat(),
-            'status': 'completed',
-            'log_count': log_count
-        }
-        
-        if mongo_client:
+        # Store metadata in MongoDB using File model
+        file_id = None
+        if file_model:
             try:
-                db = mongo_client['saas_monitoring']
-                files_collection = db['files']
-                result = files_collection.insert_one(file_metadata)
-                file_id = str(result.inserted_id)
+                file_id = file_model.create(
+                    filename=original_filename,
+                    saved_as=unique_filename,
+                    file_type=file_extension,
+                    file_size=file_size,
+                    log_count=log_count,
+                    status='completed'
+                )
+                print(f"File metadata saved with ID: {file_id}")
             except Exception as e:
-                print(f"MongoDB insert error: {str(e)}")
+                print(f"Error saving file metadata: {str(e)}")
                 file_id = None
-        else:
-            file_id = None
         
         return jsonify({
             'success': True,
@@ -786,7 +823,7 @@ def upload_file():
                 'saved_as': unique_filename,
                 'file_size': file_size,
                 'log_count': log_count,
-                'upload_date': file_metadata['upload_date']
+                'upload_date': datetime.utcnow().isoformat()
             }
         }), 200
         
@@ -814,6 +851,73 @@ def get_recent_uploads():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/search/history', methods=['GET'])
+def get_search_history():
+    """Get recent search history"""
+    try:
+        if not search_history_model:
+            return jsonify({'error': 'Search history not available'}), 503
+        
+        # Get query parameters
+        limit = min(int(request.args.get('limit', 10)), 100)
+        user = request.args.get('user', None)
+        
+        # Get recent searches
+        searches = search_history_model.get_recent(limit=limit, user=user)
+        
+        return jsonify({
+            'success': True,
+            'searches': searches,
+            'count': len(searches)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/search/history/popular', methods=['GET'])
+def get_popular_queries():
+    """Get most popular search queries"""
+    try:
+        if not search_history_model:
+            return jsonify({'error': 'Search history not available'}), 503
+        
+        # Get query parameters
+        limit = min(int(request.args.get('limit', 10)), 50)
+        days = min(int(request.args.get('days', 7)), 90)
+        
+        # Get popular queries
+        popular = search_history_model.get_popular_queries(limit=limit, days=days)
+        
+        return jsonify({
+            'success': True,
+            'popular_queries': popular,
+            'count': len(popular)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/search/history/stats', methods=['GET'])
+def get_search_stats():
+    """Get search statistics"""
+    try:
+        if not search_history_model:
+            return jsonify({'error': 'Search history not available'}), 503
+        
+        # Get query parameters
+        days = min(int(request.args.get('days', 30)), 365)
+        
+        # Get statistics
+        stats = search_history_model.get_statistics(days=days)
+        
+        return jsonify({
+            'success': True,
+            'statistics': stats
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/files')
 def files_page():
     """Render files management page"""
@@ -821,38 +925,21 @@ def files_page():
 
 @app.route('/api/files', methods=['GET'])
 def get_files():
-    """Get all uploaded files from MongoDB"""
+    """Get all uploaded files from MongoDB using File model"""
     try:
-        if not mongo_client:
-            return jsonify({'error': 'MongoDB not available'}), 503
+        if not file_model:
+            return jsonify({'error': 'File model not available'}), 503
         
-        db = mongo_client['saas_monitoring']
-        files_collection = db['files']
+        # Get all files using model
+        files = file_model.get_all()
         
-        # Get all files sorted by upload date descending
-        files = list(files_collection.find(
-            {},
-            {'_id': 1, 'filename': 1, 'saved_as': 1, 'file_type': 1, 
-             'file_size': 1, 'upload_date': 1, 'status': 1, 'log_count': 1}
-        ).sort('upload_date', -1))
-        
-        # Convert ObjectId to string
-        for file in files:
-            file['_id'] = str(file['_id'])
-        
-        # Calculate statistics
-        total_files = len(files)
-        total_logs = sum(file.get('log_count', 0) for file in files)
-        total_size = sum(file.get('file_size', 0) for file in files)
+        # Get statistics using model
+        stats = file_model.get_statistics()
         
         return jsonify({
             'success': True,
             'files': files,
-            'stats': {
-                'total_files': total_files,
-                'total_logs': total_logs,
-                'total_size': total_size
-            }
+            'stats': stats
         }), 200
         
     except Exception as e:
@@ -860,18 +947,13 @@ def get_files():
 
 @app.route('/api/files/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
-    """Delete a file from uploads folder and MongoDB"""
+    """Delete a file from uploads folder and MongoDB using File model"""
     try:
-        if not mongo_client:
-            return jsonify({'error': 'MongoDB not available'}), 503
+        if not file_model:
+            return jsonify({'error': 'File model not available'}), 503
         
-        from bson import ObjectId
-        
-        db = mongo_client['saas_monitoring']
-        files_collection = db['files']
-        
-        # Find the file document
-        file_doc = files_collection.find_one({'_id': ObjectId(file_id)})
+        # Get file document using model
+        file_doc = file_model.get_by_id(file_id)
         
         if not file_doc:
             return jsonify({'success': False, 'error': 'File not found'}), 404
@@ -884,13 +966,17 @@ def delete_file(file_id):
                 os.remove(file_path)
                 print(f"Deleted file: {file_path}")
         
-        # Delete MongoDB document
-        files_collection.delete_one({'_id': ObjectId(file_id)})
-        
-        return jsonify({
-            'success': True,
-            'message': f'File {file_doc.get("filename", "unknown")} deleted successfully'
-        }), 200
+        # Delete MongoDB document using model
+        if file_model.delete(file_id):
+            return jsonify({
+                'success': True,
+                'message': f'File {file_doc.get("filename", "unknown")} deleted successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete file from database'
+            }), 500
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

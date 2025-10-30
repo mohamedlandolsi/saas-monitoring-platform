@@ -1333,5 +1333,368 @@ def get_cache_stats():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ============================================================================
+# Chart Data Endpoints
+# ============================================================================
+
+@app.route('/api/charts/logs_per_hour', methods=['GET'])
+def get_logs_per_hour() -> Tuple[Dict[str, Any], int]:
+    """
+    Get logs count per hour for the last 24 hours.
+    
+    Uses Elasticsearch date_histogram aggregation to bucket logs by hour.
+    Useful for visualizing log volume trends.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with labels and data, status code
+        
+    Response Format:
+        {
+            "success": true,
+            "labels": ["Oct 30, 10:00", "Oct 30, 11:00", ...],
+            "data": [120, 145, 98, ...]
+        }
+    
+    Raises:
+        ElasticsearchError: If Elasticsearch is not available or query fails
+    """
+    try:
+        if not es_client:
+            app.logger.error("Charts API failed: Elasticsearch not available")
+            raise ElasticsearchError('Elasticsearch client not initialized', operation='date_histogram')
+        
+        # Calculate time range: last 24 hours
+        now = datetime.utcnow()
+        time_24h_ago = now - timedelta(hours=24)
+        
+        # Build Elasticsearch query with date histogram aggregation
+        search_body = {
+            'size': 0,  # We only want aggregations, not individual documents
+            'query': {
+                'range': {
+                    '@timestamp': {
+                        'gte': time_24h_ago.isoformat(),
+                        'lte': now.isoformat()
+                    }
+                }
+            },
+            'aggs': {
+                'logs_per_hour': {
+                    'date_histogram': {
+                        'field': '@timestamp',
+                        'fixed_interval': '1h',  # Hourly buckets
+                        'time_zone': 'UTC',
+                        'min_doc_count': 0  # Include empty buckets
+                    }
+                }
+            }
+        }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract buckets from aggregation
+        buckets = response.get('aggregations', {}).get('logs_per_hour', {}).get('buckets', [])
+        
+        # Format data for Chart.js
+        labels = []
+        data = []
+        
+        for bucket in buckets:
+            # Convert timestamp to readable format
+            timestamp = datetime.fromisoformat(bucket['key_as_string'].replace('Z', '+00:00'))
+            label = timestamp.strftime('%b %d, %H:%M')
+            labels.append(label)
+            data.append(bucket['doc_count'])
+        
+        app.logger.info(f"Fetched logs per hour: {len(buckets)} data points")
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'data': data
+        }), 200
+        
+    except ElasticsearchError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Error fetching logs per hour: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch logs per hour data',
+            operation='date_histogram',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/charts/top_endpoints', methods=['GET'])
+def get_top_endpoints() -> Tuple[Dict[str, Any], int]:
+    """
+    Get top 5 endpoints by request count.
+    
+    Uses Elasticsearch terms aggregation to find most frequently accessed endpoints.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with labels and data, status code
+        
+    Response Format:
+        {
+            "success": true,
+            "labels": ["/api/search", "/api/upload", ...],
+            "data": [1500, 1200, 800, ...]
+        }
+    
+    Raises:
+        ElasticsearchError: If Elasticsearch is not available or query fails
+    """
+    try:
+        if not es_client:
+            app.logger.error("Charts API failed: Elasticsearch not available")
+            raise ElasticsearchError('Elasticsearch client not initialized', operation='terms_aggregation')
+        
+        # Build Elasticsearch query with terms aggregation
+        search_body = {
+            'size': 0,
+            'aggs': {
+                'top_endpoints': {
+                    'terms': {
+                        'field': 'endpoint.keyword',  # Use keyword field for exact matching
+                        'size': 5,  # Top 5 endpoints
+                        'order': {
+                            '_count': 'desc'  # Order by count descending
+                        }
+                    }
+                }
+            }
+        }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract buckets from aggregation
+        buckets = response.get('aggregations', {}).get('top_endpoints', {}).get('buckets', [])
+        
+        # Format data for Chart.js
+        labels = []
+        data = []
+        
+        for bucket in buckets:
+            labels.append(bucket['key'])
+            data.append(bucket['doc_count'])
+        
+        app.logger.info(f"Fetched top {len(buckets)} endpoints")
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'data': data
+        }), 200
+        
+    except ElasticsearchError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Error fetching top endpoints: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch top endpoints data',
+            operation='terms_aggregation',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/charts/status_distribution', methods=['GET'])
+def get_status_distribution() -> Tuple[Dict[str, Any], int]:
+    """
+    Get distribution of HTTP status codes.
+    
+    Uses Elasticsearch terms aggregation to group logs by status code.
+    Useful for visualizing success vs error rates.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with labels and data, status code
+        
+    Response Format:
+        {
+            "success": true,
+            "labels": ["200", "404", "500", ...],
+            "data": [8500, 450, 50, ...],
+            "colors": ["#28a745", "#ffc107", "#dc3545", ...]
+        }
+    
+    Raises:
+        ElasticsearchError: If Elasticsearch is not available or query fails
+    """
+    try:
+        if not es_client:
+            app.logger.error("Charts API failed: Elasticsearch not available")
+            raise ElasticsearchError('Elasticsearch client not initialized', operation='terms_aggregation')
+        
+        # Build Elasticsearch query with terms aggregation
+        search_body = {
+            'size': 0,
+            'aggs': {
+                'status_codes': {
+                    'terms': {
+                        'field': 'status_code',
+                        'size': 10,  # Top 10 status codes
+                        'order': {
+                            '_count': 'desc'
+                        }
+                    }
+                }
+            }
+        }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract buckets from aggregation
+        buckets = response.get('aggregations', {}).get('status_codes', {}).get('buckets', [])
+        
+        # Format data for Chart.js with color coding
+        labels = []
+        data = []
+        colors = []
+        
+        # Color mapping for different status code ranges
+        def get_status_color(code):
+            """Get color based on HTTP status code"""
+            if 200 <= code < 300:
+                return '#28a745'  # Green for success
+            elif 300 <= code < 400:
+                return '#17a2b8'  # Cyan for redirects
+            elif 400 <= code < 500:
+                return '#ffc107'  # Yellow for client errors
+            elif 500 <= code < 600:
+                return '#dc3545'  # Red for server errors
+            else:
+                return '#6c757d'  # Gray for unknown
+        
+        for bucket in buckets:
+            status_code = int(bucket['key'])
+            labels.append(str(status_code))
+            data.append(bucket['doc_count'])
+            colors.append(get_status_color(status_code))
+        
+        app.logger.info(f"Fetched status distribution: {len(buckets)} status codes")
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'data': data,
+            'colors': colors
+        }), 200
+        
+    except ElasticsearchError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Error fetching status distribution: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch status distribution data',
+            operation='terms_aggregation',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/charts/error_rate', methods=['GET'])
+def get_error_rate() -> Tuple[Dict[str, Any], int]:
+    """
+    Get error rate (5xx errors) over the last 7 days.
+    
+    Uses Elasticsearch date_histogram aggregation with filter to track
+    server errors over time. Useful for monitoring system health trends.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with labels and data, status code
+        
+    Response Format:
+        {
+            "success": true,
+            "labels": ["Oct 24", "Oct 25", "Oct 26", ...],
+            "data": [25, 18, 32, ...],
+            "total_errors": 150
+        }
+    
+    Raises:
+        ElasticsearchError: If Elasticsearch is not available or query fails
+    """
+    try:
+        if not es_client:
+            app.logger.error("Charts API failed: Elasticsearch not available")
+            raise ElasticsearchError('Elasticsearch client not initialized', operation='date_histogram')
+        
+        # Calculate time range: last 7 days
+        now = datetime.utcnow()
+        time_7d_ago = now - timedelta(days=7)
+        
+        # Build Elasticsearch query with date histogram and error filter
+        search_body = {
+            'size': 0,
+            'query': {
+                'bool': {
+                    'must': [
+                        {
+                            'range': {
+                                '@timestamp': {
+                                    'gte': time_7d_ago.isoformat(),
+                                    'lte': now.isoformat()
+                                }
+                            }
+                        },
+                        {
+                            'range': {
+                                'status_code': {
+                                    'gte': 500,  # Only 5xx errors
+                                    'lt': 600
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            'aggs': {
+                'errors_per_day': {
+                    'date_histogram': {
+                        'field': '@timestamp',
+                        'fixed_interval': '1d',  # Daily buckets
+                        'time_zone': 'UTC',
+                        'min_doc_count': 0  # Include days with no errors
+                    }
+                }
+            }
+        }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract buckets from aggregation
+        buckets = response.get('aggregations', {}).get('errors_per_day', {}).get('buckets', [])
+        total_errors = response.get('hits', {}).get('total', {}).get('value', 0)
+        
+        # Format data for Chart.js
+        labels = []
+        data = []
+        
+        for bucket in buckets:
+            # Convert timestamp to readable format
+            timestamp = datetime.fromisoformat(bucket['key_as_string'].replace('Z', '+00:00'))
+            label = timestamp.strftime('%b %d')
+            labels.append(label)
+            data.append(bucket['doc_count'])
+        
+        app.logger.info(f"Fetched error rate: {len(buckets)} days, {total_errors} total errors")
+        
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'data': data,
+            'total_errors': total_errors
+        }), 200
+        
+    except ElasticsearchError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Error fetching error rate: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch error rate data',
+            operation='date_histogram',
+            details={'error': str(e)}
+        )
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

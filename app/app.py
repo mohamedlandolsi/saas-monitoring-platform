@@ -1,6 +1,7 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from typing import Optional, Dict, Any, List, Tuple
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from elasticsearch import Elasticsearch
@@ -74,16 +75,41 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-def allowed_file(filename):
-    """Check if file extension is allowed"""
+def allowed_file(filename: str) -> bool:
+    """
+    Check if file has an allowed extension.
+    
+    Args:
+        filename (str): Name of the file to check
+    
+    Returns:
+        bool: True if file extension is in ALLOWED_EXTENSIONS, False otherwise
+    
+    Examples:
+        >>> allowed_file('data.csv')
+        True
+        >>> allowed_file('script.py')
+        False
+    """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ============================================================================
 # Initialize Clients
 # ============================================================================
 
-def init_elasticsearch():
-    """Initialize Elasticsearch client"""
+def init_elasticsearch() -> Optional[Elasticsearch]:
+    """
+    Initialize and test Elasticsearch client connection.
+    
+    Attempts to connect to Elasticsearch using the host specified in
+    ELASTICSEARCH_HOST environment variable. Tests connection with ping.
+    
+    Returns:
+        Optional[Elasticsearch]: Elasticsearch client if connection successful, None otherwise
+    
+    Environment Variables:
+        ELASTICSEARCH_HOST: Elasticsearch server URL (default: http://localhost:9200)
+    """
     es_host = os.getenv('ELASTICSEARCH_HOST', 'http://localhost:9200')
     try:
         es = Elasticsearch([es_host], verify_certs=False, request_timeout=30)
@@ -97,8 +123,19 @@ def init_elasticsearch():
         app.logger.error(f"✗ Elasticsearch connection error: {str(e)}")
         return None
 
-def init_mongodb():
-    """Initialize MongoDB client"""
+def init_mongodb() -> Optional[MongoClient]:
+    """
+    Initialize and test MongoDB client connection.
+    
+    Attempts to connect to MongoDB using the URI specified in
+    MONGODB_URI environment variable. Tests connection with ping command.
+    
+    Returns:
+        Optional[MongoClient]: MongoDB client if connection successful, None otherwise
+    
+    Environment Variables:
+        MONGODB_URI: MongoDB connection URI (default: mongodb://admin:password123@localhost:27017/)
+    """
     mongo_uri = os.getenv('MONGODB_URI', 'mongodb://admin:password123@localhost:27017/')
     try:
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
@@ -109,8 +146,20 @@ def init_mongodb():
         app.logger.error(f"✗ MongoDB connection error: {str(e)}")
         return None
 
-def init_redis():
-    """Initialize Redis client"""
+def init_redis() -> Optional[Redis]:
+    """
+    Initialize and test Redis client connection.
+    
+    Attempts to connect to Redis using the host and port specified in
+    environment variables. Tests connection with ping command.
+    
+    Returns:
+        Optional[Redis]: Redis client if connection successful, None otherwise
+    
+    Environment Variables:
+        REDIS_HOST: Redis server host (default: localhost)
+        REDIS_PORT: Redis server port (default: 6379)
+    """
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     try:
@@ -231,22 +280,54 @@ def handle_generic_error(error):
 
 @app.route('/')
 def index():
-    """Render dashboard"""
+    """
+    Render the main dashboard page.
+    
+    Returns:
+        str: Rendered HTML template for the dashboard
+    """
     return render_template('index.html')
 
 @app.route('/search')
 def search():
-    """Render search page"""
+    """
+    Render the search page for querying logs.
+    
+    Returns:
+        str: Rendered HTML template for log search interface
+    """
     return render_template('search.html')
 
 @app.route('/upload')
 def upload():
-    """Render upload page"""
+    """
+    Render the file upload page.
+    
+    Returns:
+        str: Rendered HTML template for file upload interface
+    """
     return render_template('upload.html')
 
 @app.route('/api/health')
-def health_check():
-    """Health check endpoint"""
+def health_check() -> Tuple[Dict[str, Any], int]:
+    """
+    Health check endpoint to verify service dependencies.
+    
+    Checks connectivity to Elasticsearch, MongoDB, and Redis.
+    Returns overall health status and individual service statuses.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with health status and HTTP status code
+        
+    Response Format:
+        {
+            "status": "healthy" | "unhealthy",
+            "elasticsearch": bool,
+            "mongodb": bool,
+            "redis": bool,
+            "healthy": bool
+        }
+    """
     health_status = {
         'status': 'healthy',
         'elasticsearch': False,
@@ -293,8 +374,40 @@ def health_check():
 
 @app.route('/api/stats')
 @cache_result(timeout=60, key_prefix="stats")
-def get_stats():
-    """Get comprehensive log statistics from Elasticsearch (cached for 60s)"""
+def get_stats() -> Dict[str, Any]:
+    """
+    Get comprehensive log statistics from Elasticsearch.
+    
+    Retrieves aggregated statistics including total logs, error rates,
+    response times, slowest endpoints, and system status. Results are
+    cached for 60 seconds to improve performance.
+    
+    Returns:
+        Dict[str, Any]: JSON response with statistics
+        
+    Response Format:
+        {
+            "total_logs": int,              # Total log count
+            "total_logs_24h": int,          # Logs in last 24 hours
+            "error_rate": float,            # Error percentage
+            "avg_response_time_24h": float, # Average response time (ms)
+            "top_slowest_endpoints": [...], # Top 5 slowest endpoints
+            "unique_users_24h": int,        # Unique users in 24h
+            "latest_error": {...},          # Most recent error log
+            "system_status": {
+                "elasticsearch": bool,
+                "mongodb": bool,
+                "redis": bool
+            },
+            "cluster_status": str,          # Elasticsearch cluster status
+            "indices": [...],               # List of indices with counts
+            "error": str | null             # Error message if any
+        }
+    
+    Cache:
+        TTL: 60 seconds
+        Key: stats:get_stats:<hash>
+    """
     stats = {
         'total_logs': 0,
         'total_logs_24h': 0,

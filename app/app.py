@@ -1,4 +1,6 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from elasticsearch import Elasticsearch
@@ -11,9 +13,55 @@ import time
 from models.file import File
 from models.search_history import SearchHistory
 from utils.cache import CacheManager, cache_result, invalidate_cache
+from utils.errors import (
+    AppError, ValidationError, DatabaseError, CacheError, 
+    ElasticsearchError, FileProcessingError, NotFoundError,
+    format_error_response, handle_generic_exception
+)
 
 app = Flask(__name__)
 CORS(app)
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+# Create logs directory if it doesn't exist
+os.makedirs('logs', exist_ok=True)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# File handler with rotation
+file_handler = RotatingFileHandler(
+    'logs/app.log',
+    maxBytes=10 * 1024 * 1024,  # 10MB
+    backupCount=10
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+))
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+))
+
+# Add handlers to app logger
+app.logger.addHandler(file_handler)
+app.logger.addHandler(console_handler)
+app.logger.setLevel(logging.INFO)
+
+app.logger.info("=" * 80)
+app.logger.info("SaaS Monitoring Platform Starting...")
+app.logger.info("=" * 80)
 
 # Upload configuration
 UPLOAD_FOLDER = '/app/uploads'
@@ -30,20 +78,23 @@ def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Initialize clients
+# ============================================================================
+# Initialize Clients
+# ============================================================================
+
 def init_elasticsearch():
     """Initialize Elasticsearch client"""
     es_host = os.getenv('ELASTICSEARCH_HOST', 'http://localhost:9200')
     try:
         es = Elasticsearch([es_host], verify_certs=False, request_timeout=30)
         if es.ping():
-            print(f"✓ Connected to Elasticsearch at {es_host}")
+            app.logger.info(f"✓ Connected to Elasticsearch at {es_host}")
             return es
         else:
-            print(f"✗ Failed to ping Elasticsearch at {es_host}")
+            app.logger.error(f"✗ Failed to ping Elasticsearch at {es_host}")
             return None
     except Exception as e:
-        print(f"✗ Elasticsearch connection error: {str(e)}")
+        app.logger.error(f"✗ Elasticsearch connection error: {str(e)}")
         return None
 
 def init_mongodb():
@@ -52,10 +103,10 @@ def init_mongodb():
     try:
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
-        print(f"✓ Connected to MongoDB")
+        app.logger.info(f"✓ Connected to MongoDB")
         return client
     except Exception as e:
-        print(f"✗ MongoDB connection error: {str(e)}")
+        app.logger.error(f"✗ MongoDB connection error: {str(e)}")
         return None
 
 def init_redis():
@@ -65,10 +116,10 @@ def init_redis():
     try:
         client = Redis(host=redis_host, port=redis_port, decode_responses=True, socket_connect_timeout=5)
         client.ping()
-        print(f"✓ Connected to Redis at {redis_host}:{redis_port}")
+        app.logger.info(f"✓ Connected to Redis at {redis_host}:{redis_port}")
         return client
     except Exception as e:
-        print(f"✗ Redis connection error: {str(e)}")
+        app.logger.error(f"✗ Redis connection error: {str(e)}")
         return None
 
 # Initialize clients
@@ -84,9 +135,9 @@ if mongo_client:
     try:
         file_model = File(mongo_client)
         search_history_model = SearchHistory(mongo_client)
-        print("✓ Models initialized successfully")
+        app.logger.info("✓ Models initialized successfully")
     except Exception as e:
-        print(f"✗ Error initializing models: {str(e)}")
+        app.logger.error(f"✗ Error initializing models: {str(e)}")
 
 # Initialize cache manager
 cache_manager = None
@@ -94,9 +145,89 @@ if redis_client:
     try:
         cache_manager = CacheManager(redis_client)
         app.cache_manager = cache_manager  # Attach to app context
-        print("✓ Cache manager initialized successfully")
+        app.logger.info("✓ Cache manager initialized successfully")
     except Exception as e:
-        print(f"✗ Error initializing cache manager: {str(e)}")
+        app.logger.error(f"✗ Error initializing cache manager: {str(e)}")
+
+# ============================================================================
+# Error Handlers
+# ============================================================================
+
+@app.errorhandler(ValidationError)
+def handle_validation_error(error):
+    """Handle validation errors"""
+    app.logger.warning(f"Validation error: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(DatabaseError)
+def handle_database_error(error):
+    """Handle database errors"""
+    app.logger.error(f"Database error: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(CacheError)
+def handle_cache_error(error):
+    """Handle cache errors"""
+    app.logger.error(f"Cache error: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(ElasticsearchError)
+def handle_elasticsearch_error(error):
+    """Handle Elasticsearch errors"""
+    app.logger.error(f"Elasticsearch error: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(FileProcessingError)
+def handle_file_processing_error(error):
+    """Handle file processing errors"""
+    app.logger.warning(f"File processing error: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(NotFoundError)
+def handle_not_found_error(error):
+    """Handle not found errors"""
+    app.logger.warning(f"Not found: {error.message} - Details: {error.details}")
+    return error.to_response()
+
+@app.errorhandler(404)
+def handle_404(error):
+    """Handle 404 errors"""
+    app.logger.warning(f"404 Not Found: {request.url}")
+    
+    # Return JSON for API requests
+    if request.path.startswith('/api/'):
+        return jsonify(format_error_response("Endpoint not found", 404)), 404
+    
+    # Return HTML page for regular requests
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def handle_500(error):
+    """Handle 500 errors"""
+    app.logger.error(f"500 Internal Server Error: {str(error)}")
+    
+    # Return JSON for API requests
+    if request.path.startswith('/api/'):
+        return jsonify(format_error_response("Internal server error", 500)), 500
+    
+    # Return HTML page for regular requests
+    return render_template('500.html'), 500
+
+@app.errorhandler(Exception)
+def handle_generic_error(error):
+    """Handle all other exceptions"""
+    app.logger.error(f"Unhandled exception: {str(error)}", exc_info=True)
+    
+    # Return JSON for API requests
+    if request.path.startswith('/api/'):
+        return jsonify(handle_generic_exception(error)), 500
+    
+    # Return HTML page for regular requests
+    return render_template('500.html'), 500
+
+# ============================================================================
+# Routes
+# ============================================================================
 
 @app.route('/')
 def index():
@@ -378,10 +509,13 @@ def get_stats():
 def search_logs():
     """Search logs in Elasticsearch with advanced filters (cached for 5 min)"""
     if not es_client:
-        return jsonify({'error': 'Elasticsearch client not initialized'}), 500
+        app.logger.error("Search failed: Elasticsearch client not initialized")
+        raise ElasticsearchError('Elasticsearch client not initialized', operation='search')
     
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
+        
+        app.logger.info(f"Search request from {request.remote_addr}: query='{data.get('q', '')}', level={data.get('level', 'ALL')}")
         
         # Extract parameters
         q = data.get('q', '').strip()
@@ -391,8 +525,20 @@ def search_logs():
         endpoint = data.get('endpoint', '').strip()
         status_code = data.get('status_code', '')
         server = data.get('server', '').strip()
-        page = int(data.get('page', 1))
-        per_page = min(int(data.get('per_page', 50)), 100)  # Max 100 per page
+        
+        # Validate pagination parameters
+        try:
+            page = int(data.get('page', 1))
+            per_page = int(data.get('per_page', 50))
+            
+            if page < 1:
+                raise ValidationError('Page number must be greater than 0', field='page')
+            if per_page < 1:
+                raise ValidationError('Items per page must be greater than 0', field='per_page')
+            if per_page > 100:
+                per_page = 100  # Cap at 100
+        except (ValueError, TypeError) as e:
+            raise ValidationError('Invalid pagination parameters', details={'error': str(e)})
         
         # Build Elasticsearch Query DSL
         must_conditions = []
@@ -557,7 +703,9 @@ def search_logs():
                     execution_time_ms=execution_time_ms
                 )
             except Exception as e:
-                print(f"Error saving search history: {str(e)}")
+                app.logger.warning(f"Error saving search history: {str(e)}")
+        
+        app.logger.info(f"Search completed: {total} results found in {execution_time_ms:.2f}ms")
         
         return jsonify({
             'results': results,
@@ -567,9 +715,16 @@ def search_logs():
             'total_pages': total_pages
         })
         
+    except (ValidationError, ElasticsearchError):
+        # Re-raise custom exceptions
+        raise
     except Exception as e:
-        print(f"Search error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Search error: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'An error occurred while searching logs',
+            operation='search',
+            details={'error': str(e)}
+        )
 
 @app.route('/api/export', methods=['POST'])
 def export_logs():
@@ -766,21 +921,27 @@ def export_logs():
 def upload_file():
     """Upload CSV or JSON files with metadata storage"""
     try:
+        app.logger.info(f"File upload request received from {request.remote_addr}")
+        
         # Validate file presence
         if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file part in request'}), 400
+            app.logger.warning("Upload failed: No file part in request")
+            raise ValidationError('No file part in request', field='file')
         
         file = request.files['file']
         
         if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
+            app.logger.warning("Upload failed: No file selected")
+            raise ValidationError('No file selected', field='file')
         
         # Validate file type
         if not allowed_file(file.filename):
-            return jsonify({
-                'success': False, 
-                'error': 'Invalid file type. Only .csv and .json files are allowed'
-            }), 400
+            app.logger.warning(f"Upload failed: Invalid file type - {file.filename}")
+            raise ValidationError(
+                'Invalid file type. Only .csv and .json files are allowed',
+                field='file',
+                details={'filename': file.filename, 'allowed_extensions': list(ALLOWED_EXTENSIONS)}
+            )
         
         # Get file info
         original_filename = secure_filename(file.filename)
@@ -797,6 +958,8 @@ def upload_file():
         # Get file size
         file_size = os.path.getsize(file_path)
         
+        app.logger.info(f"File saved: {unique_filename} ({file_size} bytes)")
+        
         # Estimate log count
         log_count = 0
         try:
@@ -807,7 +970,8 @@ def upload_file():
                 elif file_extension == 'csv':
                     import csv
                     log_count = sum(1 for row in csv.reader(f)) - 1  # Exclude header
-        except:
+        except Exception as e:
+            app.logger.warning(f"Could not count logs in file: {str(e)}")
             log_count = 0
         
         # Store metadata in MongoDB using File model
@@ -822,13 +986,20 @@ def upload_file():
                     log_count=log_count,
                     status='completed'
                 )
-                print(f"File metadata saved with ID: {file_id}")
+                app.logger.info(f"File metadata saved with ID: {file_id}")
             except Exception as e:
-                print(f"Error saving file metadata: {str(e)}")
-                file_id = None
+                app.logger.error(f"Error saving file metadata: {str(e)}")
+                raise DatabaseError(
+                    'Failed to save file metadata',
+                    operation='insert',
+                    details={'error': str(e)}
+                )
         
         # Invalidate files cache after upload
         invalidate_cache("files")
+        app.logger.info(f"Cache invalidated for files after upload")
+        
+        app.logger.info(f"File upload completed successfully: {original_filename} ({log_count} logs)")
         
         return jsonify({
             'success': True,
@@ -843,8 +1014,15 @@ def upload_file():
             }
         }), 200
         
+    except (ValidationError, DatabaseError, FileProcessingError):
+        # Re-raise custom exceptions to be handled by error handlers
+        raise
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        app.logger.error(f"Unexpected error during file upload: {str(e)}", exc_info=True)
+        raise FileProcessingError(
+            'An unexpected error occurred during file upload',
+            details={'error': str(e)}
+        )
 
 @app.route('/api/uploads', methods=['GET'])
 def get_recent_uploads():

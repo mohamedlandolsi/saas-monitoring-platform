@@ -13,6 +13,7 @@ import json
 import time
 from models.file import File
 from models.search_history import SearchHistory
+from models.saved_search import SavedSearch
 from utils.cache import CacheManager, cache_result, invalidate_cache
 from utils.errors import (
     AppError, ValidationError, DatabaseError, CacheError, 
@@ -179,11 +180,13 @@ redis_client = init_redis()
 # Initialize models
 file_model = None
 search_history_model = None
+saved_search_model = None
 
 if mongo_client:
     try:
         file_model = File(mongo_client)
         search_history_model = SearchHistory(mongo_client)
+        saved_search_model = SavedSearch(mongo_client)
         app.logger.info("✓ Models initialized successfully")
     except Exception as e:
         app.logger.error(f"✗ Error initializing models: {str(e)}")
@@ -1332,6 +1335,405 @@ def get_cache_stats():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============================================================================
+# Autocomplete and Saved Search Endpoints
+# ============================================================================
+
+@app.route('/api/autocomplete/endpoints', methods=['GET'])
+def autocomplete_endpoints() -> Tuple[Dict[str, Any], int]:
+    """
+    Get autocomplete suggestions for endpoint field.
+    
+    Uses Elasticsearch terms aggregation to return the top 20 unique
+    endpoints from the log index. Results are useful for autocomplete
+    functionality in search forms.
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with endpoint suggestions and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "endpoints": [
+                "/api/users",
+                "/api/orders",
+                ...
+            ],
+            "count": int
+        }
+    
+    Raises:
+        ElasticsearchError: If Elasticsearch query fails
+    """
+    if not es_client:
+        app.logger.error("Autocomplete failed: Elasticsearch client not initialized")
+        raise ElasticsearchError('Elasticsearch client not initialized', operation='autocomplete')
+    
+    try:
+        # Query parameter for filtering (optional)
+        prefix = request.args.get('q', '').strip()
+        
+        # Build aggregation query
+        search_body = {
+            'size': 0,
+            'aggs': {
+                'unique_endpoints': {
+                    'terms': {
+                        'field': 'endpoint.keyword',
+                        'size': 20,
+                        'order': {'_count': 'desc'}
+                    }
+                }
+            }
+        }
+        
+        # Add prefix filter if provided
+        if prefix:
+            search_body['query'] = {
+                'prefix': {
+                    'endpoint.keyword': prefix
+                }
+            }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract unique endpoints
+        buckets = response['aggregations']['unique_endpoints']['buckets']
+        endpoints = [bucket['key'] for bucket in buckets]
+        
+        app.logger.info(f"Autocomplete endpoints: {len(endpoints)} results for prefix '{prefix}'")
+        
+        return jsonify({
+            'success': True,
+            'endpoints': endpoints,
+            'count': len(endpoints)
+        }), 200
+        
+    except Exception as e:
+        app.logger.error(f"Autocomplete endpoints error: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch endpoint suggestions',
+            operation='autocomplete',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/autocomplete/messages', methods=['GET'])
+def autocomplete_messages() -> Tuple[Dict[str, Any], int]:
+    """
+    Get autocomplete suggestions for message field.
+    
+    Uses Elasticsearch match query with suggestions to return top 10
+    matching log messages. Useful for autocomplete in search forms.
+    
+    Query Parameters:
+        q (str): Search query/prefix for messages
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with message suggestions and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "messages": [
+                "User login successful",
+                "User logout",
+                ...
+            ],
+            "count": int
+        }
+    
+    Raises:
+        ValidationError: If query parameter is missing
+        ElasticsearchError: If Elasticsearch query fails
+    """
+    if not es_client:
+        app.logger.error("Autocomplete failed: Elasticsearch client not initialized")
+        raise ElasticsearchError('Elasticsearch client not initialized', operation='autocomplete')
+    
+    try:
+        # Get query parameter
+        query = request.args.get('q', '').strip()
+        
+        if not query:
+            raise ValidationError('Query parameter "q" is required', field='q')
+        
+        # Build match query for message field
+        search_body = {
+            'size': 10,
+            'query': {
+                'match': {
+                    'message': {
+                        'query': query,
+                        'operator': 'and',
+                        'fuzziness': 'AUTO'
+                    }
+                }
+            },
+            '_source': ['message'],
+            'sort': [
+                {'@timestamp': {'order': 'desc'}}
+            ]
+        }
+        
+        # Execute search
+        response = es_client.search(index='saas-logs-*', body=search_body)
+        
+        # Extract unique messages
+        hits = response['hits']['hits']
+        messages = []
+        seen = set()
+        
+        for hit in hits:
+            message = hit['_source'].get('message', '')
+            if message and message not in seen:
+                messages.append(message)
+                seen.add(message)
+        
+        app.logger.info(f"Autocomplete messages: {len(messages)} results for query '{query}'")
+        
+        return jsonify({
+            'success': True,
+            'messages': messages,
+            'count': len(messages)
+        }), 200
+        
+    except (ValidationError, ElasticsearchError):
+        raise
+    except Exception as e:
+        app.logger.error(f"Autocomplete messages error: {str(e)}", exc_info=True)
+        raise ElasticsearchError(
+            'Failed to fetch message suggestions',
+            operation='autocomplete',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/search/save', methods=['POST'])
+def save_search() -> Tuple[Dict[str, Any], int]:
+    """
+    Save a search query with filters for later reuse.
+    
+    Saves search parameters to MongoDB, allowing users to quickly
+    reapply frequently used search configurations.
+    
+    Request Body:
+        {
+            "name": str,                # Required: Name for saved search
+            "description": str,         # Optional: Description
+            "filters": {                # Required: Search filters
+                "q": str,
+                "level": str,
+                "status_code": str,
+                "endpoint": str,
+                "server": str,
+                "date_from": str,
+                "date_to": str
+            }
+        }
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with saved search details and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "message": "Search saved successfully",
+            "search_id": str,
+            "name": str
+        }
+    
+    Raises:
+        ValidationError: If required fields are missing or invalid
+        DatabaseError: If MongoDB save operation fails
+    """
+    if not saved_search_model:
+        app.logger.error("Save search failed: MongoDB not initialized")
+        raise DatabaseError('Database not initialized', operation='save_search')
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            raise ValidationError('Request body is required', field='body')
+        
+        # Extract and validate required fields
+        name = data.get('name', '').strip()
+        if not name:
+            raise ValidationError('Search name is required', field='name')
+        
+        filters = data.get('filters', {})
+        if not isinstance(filters, dict):
+            raise ValidationError('Filters must be an object', field='filters')
+        
+        # Optional fields
+        description = data.get('description', '').strip()
+        
+        # Use IP as user identifier (or implement proper user auth)
+        user = request.remote_addr
+        
+        # Save to MongoDB
+        search_id = saved_search_model.save(
+            name=name,
+            filters=filters,
+            user=user,
+            description=description
+        )
+        
+        if not search_id:
+            raise DatabaseError('Failed to save search', operation='save_search')
+        
+        app.logger.info(f"Search saved: '{name}' by user {user}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Search saved successfully',
+            'search_id': search_id,
+            'name': name
+        }), 201
+        
+    except (ValidationError, DatabaseError):
+        raise
+    except Exception as e:
+        app.logger.error(f"Save search error: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'An error occurred while saving search',
+            operation='save_search',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/search/saved', methods=['GET'])
+def get_saved_searches() -> Tuple[Dict[str, Any], int]:
+    """
+    Get all saved searches for the current user.
+    
+    Retrieves saved search configurations from MongoDB, ordered by
+    last used timestamp. Returns list of saved searches with their
+    filters and metadata.
+    
+    Query Parameters:
+        limit (int): Maximum number of results (default: 50)
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with saved searches and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "searches": [
+                {
+                    "_id": str,
+                    "name": str,
+                    "description": str,
+                    "filters": {...},
+                    "created_at": str,
+                    "last_used": str,
+                    "use_count": int
+                },
+                ...
+            ],
+            "count": int
+        }
+    
+    Raises:
+        DatabaseError: If MongoDB query fails
+    """
+    if not saved_search_model:
+        app.logger.error("Get saved searches failed: MongoDB not initialized")
+        raise DatabaseError('Database not initialized', operation='get_saved_searches')
+    
+    try:
+        # Get limit parameter
+        limit = request.args.get('limit', 50, type=int)
+        if limit < 1 or limit > 100:
+            limit = 50
+        
+        # Use IP as user identifier
+        user = request.remote_addr
+        
+        # Get saved searches from MongoDB
+        searches = saved_search_model.get_by_user(user=user, limit=limit)
+        
+        app.logger.info(f"Retrieved {len(searches)} saved searches for user {user}")
+        
+        return jsonify({
+            'success': True,
+            'searches': searches,
+            'count': len(searches)
+        }), 200
+        
+    except DatabaseError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Get saved searches error: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'An error occurred while retrieving saved searches',
+            operation='get_saved_searches',
+            details={'error': str(e)}
+        )
+
+@app.route('/api/search/saved/<search_id>', methods=['DELETE'])
+def delete_saved_search(search_id: str) -> Tuple[Dict[str, Any], int]:
+    """
+    Delete a saved search by ID.
+    
+    Removes a saved search from MongoDB. Only the user who created
+    the search can delete it.
+    
+    URL Parameters:
+        search_id (str): ID of the saved search to delete
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with deletion status and HTTP status code
+        
+    Response Format:
+        {
+            "success": true,
+            "message": "Search deleted successfully"
+        }
+    
+    Raises:
+        ValidationError: If search_id is invalid
+        NotFoundError: If search not found
+        DatabaseError: If MongoDB delete operation fails
+    """
+    if not saved_search_model:
+        app.logger.error("Delete saved search failed: MongoDB not initialized")
+        raise DatabaseError('Database not initialized', operation='delete_saved_search')
+    
+    try:
+        if not search_id:
+            raise ValidationError('Search ID is required', field='search_id')
+        
+        # Use IP as user identifier
+        user = request.remote_addr
+        
+        # Delete from MongoDB
+        deleted = saved_search_model.delete(search_id=search_id, user=user)
+        
+        if not deleted:
+            raise NotFoundError(
+                'Search not found or not authorized to delete',
+                resource='saved_search',
+                resource_id=search_id
+            )
+        
+        app.logger.info(f"Search deleted: {search_id} by user {user}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Search deleted successfully'
+        }), 200
+        
+    except (ValidationError, NotFoundError, DatabaseError):
+        raise
+    except Exception as e:
+        app.logger.error(f"Delete saved search error: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'An error occurred while deleting search',
+            operation='delete_saved_search',
+            details={'error': str(e)}
+        )
 
 # ============================================================================
 # Chart Data Endpoints

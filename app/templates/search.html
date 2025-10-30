@@ -193,6 +193,24 @@
             <h2 class="mb-4">
                 <i class="bi bi-search"></i> Search Logs
             </h2>
+
+            <!-- Saved Searches Section -->
+            <div class="row mb-3" id="savedSearchesSection">
+                <div class="col-md-10">
+                    <label for="savedSearchSelect" class="form-label">
+                        <i class="bi bi-bookmark-star"></i> Saved Searches
+                    </label>
+                    <select class="form-select" id="savedSearchSelect">
+                        <option value="">-- Load a saved search --</option>
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100" id="deleteSavedSearchBtn" disabled>
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
             
             <form id="searchForm">
                 <div class="row">
@@ -279,7 +297,12 @@
                                 id="endpointFilter" 
                                 name="endpoint"
                                 placeholder="e.g., /api/users"
+                                list="endpointSuggestions"
+                                autocomplete="off"
                             >
+                            <datalist id="endpointSuggestions">
+                                <!-- Populated dynamically -->
+                            </datalist>
                         </div>
                         
                         <div class="col-md-6">
@@ -310,6 +333,9 @@
                     <div class="mt-3">
                         <button type="button" class="btn btn-outline-secondary" id="resetFilters">
                             <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="saveSearchBtn">
+                            <i class="bi bi-bookmark-plus"></i> Save This Search
                         </button>
                     </div>
                 </div>
@@ -362,6 +388,55 @@
                         <!-- Pagination will be populated here -->
                     </ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Search Modal -->
+    <div class="modal fade" id="saveSearchModal" tabindex="-1" aria-labelledby="saveSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saveSearchModalLabel">
+                        <i class="bi bi-bookmark-plus"></i> Save Search
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="saveSearchForm">
+                        <div class="mb-3">
+                            <label for="searchName" class="form-label">Search Name *</label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="searchName" 
+                                placeholder="e.g., Error Logs Last 24h"
+                                required
+                            >
+                        </div>
+                        <div class="mb-3">
+                            <label for="searchDescription" class="form-label">Description (Optional)</label>
+                            <textarea 
+                                class="form-control" 
+                                id="searchDescription" 
+                                rows="3"
+                                placeholder="Brief description of this search..."
+                            ></textarea>
+                        </div>
+                        <div class="alert alert-info">
+                            <small>
+                                <i class="bi bi-info-circle"></i>
+                                Current search filters will be saved.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveSearchConfirmBtn">
+                        <i class="bi bi-save"></i> Save Search
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -768,8 +843,311 @@
 
         // Auto-search on page load if there are query parameters
         window.addEventListener('DOMContentLoaded', function() {
-            // You can add URL parameter parsing here if needed
+            // Load saved searches on page load
+            loadSavedSearches();
+            
+            // Load endpoint autocomplete data
+            loadEndpointSuggestions();
         });
+
+        // ============================================================================
+        // Autocomplete Functionality
+        // ============================================================================
+
+        // Debounce function for autocomplete
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Load endpoint suggestions for autocomplete
+        async function loadEndpointSuggestions(prefix = '') {
+            try {
+                const url = prefix 
+                    ? `/api/autocomplete/endpoints?q=${encodeURIComponent(prefix)}`
+                    : '/api/autocomplete/endpoints';
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to load endpoint suggestions');
+                
+                const data = await response.json();
+                
+                // Populate datalist
+                const datalist = document.getElementById('endpointSuggestions');
+                datalist.innerHTML = '';
+                
+                data.endpoints.forEach(endpoint => {
+                    const option = document.createElement('option');
+                    option.value = endpoint;
+                    datalist.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Error loading endpoint suggestions:', error);
+            }
+        }
+
+        // Add event listener for endpoint input with debouncing
+        const endpointInput = document.getElementById('endpointFilter');
+        endpointInput.addEventListener('input', debounce(function(e) {
+            const prefix = e.target.value.trim();
+            if (prefix.length >= 2) {
+                loadEndpointSuggestions(prefix);
+            }
+        }, 300));
+
+        // ============================================================================
+        // Saved Searches Functionality
+        // ============================================================================
+
+        let savedSearchesData = [];
+
+        // Load saved searches from API
+        async function loadSavedSearches() {
+            try {
+                const response = await fetch('/api/search/saved');
+                if (!response.ok) throw new Error('Failed to load saved searches');
+                
+                const data = await response.json();
+                savedSearchesData = data.searches || [];
+                
+                // Populate dropdown
+                const select = document.getElementById('savedSearchSelect');
+                select.innerHTML = '<option value="">-- Load a saved search --</option>';
+                
+                savedSearchesData.forEach(search => {
+                    const option = document.createElement('option');
+                    option.value = search._id;
+                    option.textContent = search.name;
+                    select.appendChild(option);
+                });
+                
+                console.log(`Loaded ${savedSearchesData.length} saved searches`);
+                
+            } catch (error) {
+                console.error('Error loading saved searches:', error);
+            }
+        }
+
+        // Get current search filters
+        function getCurrentFilters() {
+            const formData = new FormData(searchForm);
+            return {
+                q: formData.get('q') || '',
+                level: formData.get('level') || '',
+                status_code: formData.get('status_code') || '',
+                server: formData.get('server') || '',
+                endpoint: formData.get('endpoint') || '',
+                date_from: formData.get('date_from') || '',
+                date_to: formData.get('date_to') || ''
+            };
+        }
+
+        // Load a saved search into the form
+        function loadSavedSearch(searchId) {
+            const search = savedSearchesData.find(s => s._id === searchId);
+            if (!search) return;
+            
+            const filters = search.filters || {};
+            
+            // Populate form fields
+            document.getElementById('searchQuery').value = filters.q || '';
+            document.getElementById('levelFilter').value = filters.level || '';
+            document.getElementById('statusFilter').value = filters.status_code || '';
+            document.getElementById('serverFilter').value = filters.server || '';
+            document.getElementById('endpointFilter').value = filters.endpoint || '';
+            document.getElementById('dateFrom').value = filters.date_from ? filters.date_from.slice(0, 16) : '';
+            document.getElementById('dateTo').value = filters.date_to ? filters.date_to.slice(0, 16) : '';
+            
+            // Show filters if they were collapsed
+            if (advancedFilters.classList.contains('collapsed')) {
+                advancedFilters.classList.remove('collapsed');
+                filterToggleIcon.className = 'bi bi-chevron-up';
+            }
+            
+            console.log(`Loaded saved search: ${search.name}`);
+            
+            // Show success notification
+            showNotification(`Loaded search: ${search.name}`, 'success');
+        }
+
+        // Handle saved search selection
+        document.getElementById('savedSearchSelect').addEventListener('change', function(e) {
+            const searchId = e.target.value;
+            const deleteBtn = document.getElementById('deleteSavedSearchBtn');
+            
+            if (searchId) {
+                loadSavedSearch(searchId);
+                deleteBtn.disabled = false;
+            } else {
+                deleteBtn.disabled = true;
+            }
+        });
+
+        // Handle save search button click
+        document.getElementById('saveSearchBtn').addEventListener('click', function() {
+            // Clear previous values
+            document.getElementById('searchName').value = '';
+            document.getElementById('searchDescription').value = '';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('saveSearchModal'));
+            modal.show();
+        });
+
+        // Handle save search confirm
+        document.getElementById('saveSearchConfirmBtn').addEventListener('click', async function() {
+            const name = document.getElementById('searchName').value.trim();
+            const description = document.getElementById('searchDescription').value.trim();
+            
+            if (!name) {
+                alert('Please enter a name for this search');
+                return;
+            }
+            
+            // Disable button during save
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            
+            try {
+                // Get current filters
+                const filters = getCurrentFilters();
+                
+                // Save to API
+                const response = await fetch('/api/search/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        filters: filters
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save search');
+                }
+                
+                const data = await response.json();
+                
+                // Reload saved searches
+                await loadSavedSearches();
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('saveSearchModal'));
+                modal.hide();
+                
+                // Show success notification
+                showNotification(`Search "${name}" saved successfully!`, 'success');
+                
+                console.log('Search saved:', data);
+                
+            } catch (error) {
+                console.error('Error saving search:', error);
+                alert('Error saving search: ' + error.message);
+            } finally {
+                // Restore button state
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+
+        // Handle delete saved search
+        document.getElementById('deleteSavedSearchBtn').addEventListener('click', async function() {
+            const select = document.getElementById('savedSearchSelect');
+            const searchId = select.value;
+            
+            if (!searchId) return;
+            
+            const search = savedSearchesData.find(s => s._id === searchId);
+            if (!search) return;
+            
+            if (!confirm(`Are you sure you want to delete "${search.name}"?`)) {
+                return;
+            }
+            
+            // Disable button during delete
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deleting...';
+            
+            try {
+                const response = await fetch(`/api/search/saved/${searchId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete search');
+                }
+                
+                // Reload saved searches
+                await loadSavedSearches();
+                
+                // Reset selection
+                select.value = '';
+                btn.disabled = true;
+                
+                // Show success notification
+                showNotification(`Search "${search.name}" deleted successfully!`, 'success');
+                
+                console.log('Search deleted:', searchId);
+                
+            } catch (error) {
+                console.error('Error deleting search:', error);
+                alert('Error deleting search: ' + error.message);
+            } finally {
+                // Restore button state
+                btn.innerHTML = originalText;
+            }
+        });
+
+        // Show notification helper
+        function showNotification(message, type = 'info') {
+            const alertClass = {
+                'success': 'alert-success',
+                'error': 'alert-danger',
+                'info': 'alert-info',
+                'warning': 'alert-warning'
+            }[type] || 'alert-info';
+            
+            const icon = {
+                'success': 'check-circle-fill',
+                'error': 'exclamation-triangle-fill',
+                'info': 'info-circle-fill',
+                'warning': 'exclamation-circle-fill'
+            }[type] || 'info-circle-fill';
+            
+            const alert = document.createElement('div');
+            alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+            alert.style.zIndex = '10000';
+            alert.style.minWidth = '300px';
+            alert.innerHTML = `
+                <i class="bi bi-${icon} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alert);
+
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 150);
+            }, 3000);
+        }
     </script>
 </body>
 </html>

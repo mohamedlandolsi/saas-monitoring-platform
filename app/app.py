@@ -10,6 +10,7 @@ import json
 import time
 from models.file import File
 from models.search_history import SearchHistory
+from utils.cache import CacheManager, cache_result, invalidate_cache
 
 app = Flask(__name__)
 CORS(app)
@@ -87,6 +88,16 @@ if mongo_client:
     except Exception as e:
         print(f"✗ Error initializing models: {str(e)}")
 
+# Initialize cache manager
+cache_manager = None
+if redis_client:
+    try:
+        cache_manager = CacheManager(redis_client)
+        app.cache_manager = cache_manager  # Attach to app context
+        print("✓ Cache manager initialized successfully")
+    except Exception as e:
+        print(f"✗ Error initializing cache manager: {str(e)}")
+
 @app.route('/')
 def index():
     """Render dashboard"""
@@ -150,8 +161,9 @@ def health_check():
     return jsonify(health_status), status_code
 
 @app.route('/api/stats')
+@cache_result(timeout=60, key_prefix="stats")
 def get_stats():
-    """Get comprehensive log statistics from Elasticsearch"""
+    """Get comprehensive log statistics from Elasticsearch (cached for 60s)"""
     stats = {
         'total_logs': 0,
         'total_logs_24h': 0,
@@ -362,8 +374,9 @@ def get_stats():
     return jsonify(stats)
 
 @app.route('/api/search', methods=['POST'])
+@cache_result(timeout=300, key_prefix="search")
 def search_logs():
-    """Search logs in Elasticsearch with advanced filters"""
+    """Search logs in Elasticsearch with advanced filters (cached for 5 min)"""
     if not es_client:
         return jsonify({'error': 'Elasticsearch client not initialized'}), 500
     
@@ -814,6 +827,9 @@ def upload_file():
                 print(f"Error saving file metadata: {str(e)}")
                 file_id = None
         
+        # Invalidate files cache after upload
+        invalidate_cache("files")
+        
         return jsonify({
             'success': True,
             'file_id': file_id,
@@ -924,8 +940,9 @@ def files_page():
     return render_template('files.html')
 
 @app.route('/api/files', methods=['GET'])
+@cache_result(timeout=600, key_prefix="files")
 def get_files():
-    """Get all uploaded files from MongoDB using File model"""
+    """Get all uploaded files from MongoDB using File model (cached for 10 min)"""
     try:
         if not file_model:
             return jsonify({'error': 'File model not available'}), 503
@@ -968,6 +985,9 @@ def delete_file(file_id):
         
         # Delete MongoDB document using model
         if file_model.delete(file_id):
+            # Invalidate files cache after deletion
+            invalidate_cache("files")
+            
             return jsonify({
                 'success': True,
                 'message': f'File {file_doc.get("filename", "unknown")} deleted successfully'
@@ -977,6 +997,47 @@ def delete_file(file_id):
                 'success': False,
                 'error': 'Failed to delete file from database'
             }), 500
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/cache/stats', methods=['GET'])
+def get_cache_stats():
+    """Get cache statistics"""
+    try:
+        if not cache_manager:
+            return jsonify({'error': 'Cache manager not available'}), 503
+        
+        # Get cache statistics
+        stats = cache_manager.get_stats()
+        
+        # Get Redis info if available
+        redis_info = {}
+        if redis_client:
+            try:
+                info = redis_client.info('stats')
+                redis_info = {
+                    'total_connections_received': info.get('total_connections_received', 0),
+                    'total_commands_processed': info.get('total_commands_processed', 0),
+                    'keyspace_hits': info.get('keyspace_hits', 0),
+                    'keyspace_misses': info.get('keyspace_misses', 0),
+                    'used_memory_human': redis_client.info('memory').get('used_memory_human', 'N/A')
+                }
+                
+                # Calculate Redis hit rate
+                redis_hits = redis_info['keyspace_hits']
+                redis_misses = redis_info['keyspace_misses']
+                redis_total = redis_hits + redis_misses
+                redis_hit_rate = (redis_hits / redis_total * 100) if redis_total > 0 else 0
+                redis_info['redis_hit_rate_percent'] = round(redis_hit_rate, 2)
+            except Exception as e:
+                print(f"Error getting Redis info: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'cache_stats': stats,
+            'redis_info': redis_info
+        }), 200
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

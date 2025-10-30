@@ -1,0 +1,4 @@
+timestamp,level,message,endpoint,status_code
+2025-10-30T10:00:00Z,INFO,Test CSV log 1,/api/test,200
+2025-10-30T10:01:00Z,WARNING,Test CSV log 2,/api/test,404
+2025-10-30T10:02:00Z,ERROR,Test CSV log 3,/api/test,500

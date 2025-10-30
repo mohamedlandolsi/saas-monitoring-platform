@@ -20,29 +20,42 @@
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,.1);
             transition: transform 0.2s;
+            margin-bottom: 1.5rem;
         }
         .card:hover {
             transform: translateY(-5px);
         }
-        .stat-card {
+        .kpi-card {
             padding: 1.5rem;
+            text-align: center;
         }
-        .stat-value {
+        .kpi-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .kpi-value {
             font-size: 2.5rem;
             font-weight: bold;
-            color: #667eea;
+            margin: 0.5rem 0;
         }
-        .stat-label {
+        .kpi-label {
             color: #6c757d;
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
+        .kpi-green { color: #28a745; }
+        .kpi-yellow { color: #ffc107; }
+        .kpi-red { color: #dc3545; }
+        .kpi-blue { color: #007bff; }
+        .kpi-purple { color: #6f42c1; }
+        
         .status-badge {
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-weight: 600;
             display: inline-block;
+            font-size: 0.85rem;
         }
         .status-online {
             background-color: #d4edda;
@@ -52,19 +65,40 @@
             background-color: #f8d7da;
             color: #721c24;
         }
-        .service-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
         .refresh-indicator {
             font-size: 0.85rem;
-            color: #6c757d;
+            color: rgba(255,255,255,0.8);
         }
         .loading-spinner {
             display: none;
         }
         .loading .loading-spinner {
             display: inline-block;
+        }
+        .endpoint-table {
+            font-size: 0.9rem;
+        }
+        .endpoint-table td {
+            padding: 0.75rem;
+        }
+        .error-alert {
+            border-left: 4px solid #dc3545;
+        }
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+            height: 20px;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
 </head>
@@ -82,44 +116,38 @@
                 <a href="/upload" class="btn btn-outline-light btn-sm me-2">
                     <i class="bi bi-cloud-upload"></i> Upload Logs
                 </a>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
                 <span class="text-white refresh-indicator">
-                    <i class="bi bi-arrow-clockwise"></i> Auto-refresh: 30s
                     <span class="spinner-border spinner-border-sm ms-2 loading-spinner" role="status"></span>
                 </span>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <!-- System Health Status -->
-        <div class="row mb-4">
+    <div class="container-fluid px-4">
+        <!-- System Health Status Bar -->
+        <div class="row mb-3">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3">
-                            <i class="bi bi-heart-pulse"></i> System Health
-                        </h5>
-                        <div class="row text-center" id="health-status">
-                            <div class="col-md-4 mb-3">
-                                <div class="service-icon">
-                                    <i class="bi bi-search text-info"></i>
-                                </div>
-                                <h6>Elasticsearch</h6>
-                                <span class="status-badge" id="es-status">Checking...</span>
+                <div class="card py-2">
+                    <div class="card-body py-2">
+                        <div class="row text-center">
+                            <div class="col">
+                                <small class="text-muted">Elasticsearch</small>
+                                <span class="status-badge ms-2" id="es-status">...</span>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="service-icon">
-                                    <i class="bi bi-database text-success"></i>
-                                </div>
-                                <h6>MongoDB</h6>
-                                <span class="status-badge" id="mongo-status">Checking...</span>
+                            <div class="col">
+                                <small class="text-muted">MongoDB</small>
+                                <span class="status-badge ms-2" id="mongo-status">...</span>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="service-icon">
-                                    <i class="bi bi-lightning text-danger"></i>
-                                </div>
-                                <h6>Redis</h6>
-                                <span class="status-badge" id="redis-status">Checking...</span>
+                            <div class="col">
+                                <small class="text-muted">Redis</small>
+                                <span class="status-badge ms-2" id="redis-status">...</span>
+                            </div>
+                            <div class="col">
+                                <small class="text-muted">Last Update</small>
+                                <strong class="ms-2" id="last-update">-</strong>
                             </div>
                         </div>
                     </div>
@@ -127,48 +155,89 @@
             </div>
         </div>
 
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="text-center">
-                        <i class="bi bi-file-text service-icon text-primary"></i>
-                        <div class="stat-value" id="total-logs">0</div>
-                        <div class="stat-label">Total Logs</div>
+        <!-- KPI Cards Row -->
+        <div class="row">
+            <!-- Total Logs (24h) -->
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card">
+                    <i class="bi bi-file-text kpi-icon kpi-blue"></i>
+                    <div class="kpi-value kpi-blue" id="total-logs-24h">
+                        <div class="skeleton" style="width: 80px; margin: 0 auto;"></div>
+                    </div>
+                    <div class="kpi-label">Total Logs (24h)</div>
+                </div>
+            </div>
+
+            <!-- Error Rate -->
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card">
+                    <i class="bi bi-exclamation-triangle kpi-icon" id="error-rate-icon"></i>
+                    <div class="kpi-value" id="error-rate">
+                        <div class="skeleton" style="width: 80px; margin: 0 auto;"></div>
+                    </div>
+                    <div class="kpi-label">Error Rate</div>
+                </div>
+            </div>
+
+            <!-- Avg Response Time -->
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card">
+                    <i class="bi bi-speedometer2 kpi-icon" id="response-time-icon"></i>
+                    <div class="kpi-value" id="avg-response-time">
+                        <div class="skeleton" style="width: 80px; margin: 0 auto;"></div>
+                    </div>
+                    <div class="kpi-label">Avg Response Time</div>
+                </div>
+            </div>
+
+            <!-- Active Users -->
+            <div class="col-xl-3 col-md-6">
+                <div class="card kpi-card">
+                    <i class="bi bi-people kpi-icon kpi-purple"></i>
+                    <div class="kpi-value kpi-purple" id="active-users">
+                        <div class="skeleton" style="width: 80px; margin: 0 auto;"></div>
+                    </div>
+                    <div class="kpi-label">Active Users (24h)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Row: Slowest Endpoints & Latest Error -->
+        <div class="row">
+            <!-- Top 3 Slowest Endpoints -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="bi bi-speedometer text-warning"></i> Top 3 Slowest Endpoints (24h)
+                        </h5>
+                        <div id="slowest-endpoints">
+                            <div class="skeleton mb-2"></div>
+                            <div class="skeleton mb-2"></div>
+                            <div class="skeleton mb-2"></div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="text-center">
-                        <i class="bi bi-folder service-icon text-success"></i>
-                        <div class="stat-value" id="total-indices">0</div>
-                        <div class="stat-label">Indices</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="text-center">
-                        <i class="bi bi-hdd service-icon text-warning"></i>
-                        <div class="stat-value" id="cluster-status">-</div>
-                        <div class="stat-label">Cluster Status</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="text-center">
-                        <i class="bi bi-clock service-icon text-info"></i>
-                        <div class="stat-value" id="last-update">-</div>
-                        <div class="stat-label">Last Update</div>
+
+            <!-- Latest Error -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="bi bi-bug text-danger"></i> Latest Error
+                        </h5>
+                        <div id="latest-error">
+                            <div class="skeleton mb-2"></div>
+                            <div class="skeleton mb-2" style="width: 70%;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Quick Links -->
-        <div class="row mb-4">
+        <div class="row">
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
@@ -182,9 +251,12 @@
                             <a href="http://localhost:9200" target="_blank" class="btn btn-outline-success">
                                 <i class="bi bi-search"></i> Elasticsearch API
                             </a>
-                            <button class="btn btn-outline-secondary" onclick="refreshData()">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh Now
-                            </button>
+                            <a href="/search" class="btn btn-outline-info">
+                                <i class="bi bi-search"></i> Search Logs
+                            </a>
+                            <a href="/upload" class="btn btn-outline-warning">
+                                <i class="bi bi-cloud-upload"></i> Upload Logs
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -192,7 +264,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="text-center text-muted py-3">
+        <footer class="text-center text-muted py-4">
             <small>SaaS Application Log Monitoring Platform | ELK Stack 8.11 | Docker Compose</small>
         </footer>
     </div>
@@ -209,13 +281,8 @@
                 const response = await fetch('/api/health');
                 const data = await response.json();
                 
-                // Update Elasticsearch status
                 updateStatus('es-status', data.elasticsearch);
-                
-                // Update MongoDB status
                 updateStatus('mongo-status', data.mongodb);
-                
-                // Update Redis status
                 updateStatus('redis-status', data.redis);
                 
             } catch (error) {
@@ -231,18 +298,93 @@
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 
-                // Update total logs
-                document.getElementById('total-logs').textContent = 
-                    data.total_logs.toLocaleString();
+                // Update Total Logs (24h)
+                document.getElementById('total-logs-24h').textContent = 
+                    data.total_logs_24h ? data.total_logs_24h.toLocaleString() : '0';
                 
-                // Update indices count
-                document.getElementById('total-indices').textContent = 
-                    data.indices.length;
+                // Update Error Rate with color coding
+                const errorRate = data.error_rate || 0;
+                const errorRateEl = document.getElementById('error-rate');
+                const errorRateIcon = document.getElementById('error-rate-icon');
+                errorRateEl.textContent = errorRate.toFixed(2) + '%';
                 
-                // Update cluster status
-                const statusEl = document.getElementById('cluster-status');
-                statusEl.textContent = data.cluster_status.toUpperCase();
-                statusEl.style.color = getClusterStatusColor(data.cluster_status);
+                if (errorRate < 1) {
+                    errorRateEl.className = 'kpi-value kpi-green';
+                    errorRateIcon.className = 'bi bi-check-circle kpi-icon kpi-green';
+                } else if (errorRate < 5) {
+                    errorRateEl.className = 'kpi-value kpi-yellow';
+                    errorRateIcon.className = 'bi bi-exclamation-triangle kpi-icon kpi-yellow';
+                } else {
+                    errorRateEl.className = 'kpi-value kpi-red';
+                    errorRateIcon.className = 'bi bi-x-circle kpi-icon kpi-red';
+                }
+                
+                // Update Avg Response Time with color coding
+                const avgTime = data.avg_response_time_24h || 0;
+                const avgTimeEl = document.getElementById('avg-response-time');
+                const avgTimeIcon = document.getElementById('response-time-icon');
+                avgTimeEl.textContent = avgTime.toFixed(0) + ' ms';
+                
+                if (avgTime < 500) {
+                    avgTimeEl.className = 'kpi-value kpi-green';
+                    avgTimeIcon.className = 'bi bi-speedometer2 kpi-icon kpi-green';
+                } else if (avgTime < 1000) {
+                    avgTimeEl.className = 'kpi-value kpi-yellow';
+                    avgTimeIcon.className = 'bi bi-speedometer2 kpi-icon kpi-yellow';
+                } else {
+                    avgTimeEl.className = 'kpi-value kpi-red';
+                    avgTimeIcon.className = 'bi bi-speedometer2 kpi-icon kpi-red';
+                }
+                
+                // Update Active Users
+                document.getElementById('active-users').textContent = 
+                    data.unique_users_24h ? data.unique_users_24h.toLocaleString() : '0';
+                
+                // Update Top 3 Slowest Endpoints
+                const slowestEndpointsEl = document.getElementById('slowest-endpoints');
+                if (data.top_slowest_endpoints && data.top_slowest_endpoints.length > 0) {
+                    let html = '<table class="table table-sm endpoint-table mb-0">';
+                    html += '<thead><tr><th>Endpoint</th><th class="text-end">Avg Time</th><th class="text-end">Count</th></tr></thead>';
+                    html += '<tbody>';
+                    
+                    data.top_slowest_endpoints.forEach((endpoint, index) => {
+                        const badge = index === 0 ? 'danger' : (index === 1 ? 'warning' : 'info');
+                        html += `<tr>
+                            <td><code class="small">${endpoint.endpoint}</code></td>
+                            <td class="text-end"><span class="badge bg-${badge}">${endpoint.avg_response_time.toFixed(0)} ms</span></td>
+                            <td class="text-end">${endpoint.count.toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                    slowestEndpointsEl.innerHTML = html;
+                } else {
+                    slowestEndpointsEl.innerHTML = '<div class="no-data"><i class="bi bi-inbox"></i><p class="mb-0 mt-2">No data available</p></div>';
+                }
+                
+                // Update Latest Error
+                const latestErrorEl = document.getElementById('latest-error');
+                if (data.latest_error) {
+                    const error = data.latest_error;
+                    const timestamp = new Date(error.timestamp).toLocaleString();
+                    const levelBadge = error.level === 'CRITICAL' ? 'danger' : 'warning';
+                    
+                    latestErrorEl.innerHTML = `
+                        <div class="alert alert-${levelBadge} error-alert mb-0">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-${levelBadge}">${error.level}</span>
+                                <small class="text-muted">${timestamp}</small>
+                            </div>
+                            <p class="mb-2"><strong>${error.message}</strong></p>
+                            <div class="small">
+                                <strong>Endpoint:</strong> <code>${error.endpoint || 'N/A'}</code><br>
+                                <strong>Status:</strong> ${error.status_code || 'N/A'}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    latestErrorEl.innerHTML = '<div class="alert alert-success mb-0"><i class="bi bi-check-circle"></i> No recent errors</div>';
+                }
                 
                 // Update last update time
                 document.getElementById('last-update').textContent = 
@@ -250,7 +392,7 @@
                 
             } catch (error) {
                 console.error('Failed to fetch stats:', error);
-                document.getElementById('total-logs').textContent = 'Error';
+                document.getElementById('total-logs-24h').textContent = 'Error';
             } finally {
                 document.body.classList.remove('loading');
             }
@@ -265,20 +407,6 @@
             } else {
                 element.textContent = 'Offline';
                 element.className = 'status-badge status-offline';
-            }
-        }
-
-        // Get color for cluster status
-        function getClusterStatusColor(status) {
-            switch (status.toLowerCase()) {
-                case 'green':
-                    return '#28a745';
-                case 'yellow':
-                    return '#ffc107';
-                case 'red':
-                    return '#dc3545';
-                default:
-                    return '#6c757d';
             }
         }
 

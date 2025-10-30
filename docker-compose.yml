@@ -105,6 +105,8 @@ services:
     container_name: webapp
     ports:
       - "5000:5000"
+    volumes:
+      - ./app:/app
     environment:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - MONGODB_URI=mongodb://admin:password123@mongodb:27017/

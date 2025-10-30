@@ -814,5 +814,86 @@ def get_recent_uploads():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/files')
+def files_page():
+    """Render files management page"""
+    return render_template('files.html')
+
+@app.route('/api/files', methods=['GET'])
+def get_files():
+    """Get all uploaded files from MongoDB"""
+    try:
+        if not mongo_client:
+            return jsonify({'error': 'MongoDB not available'}), 503
+        
+        db = mongo_client['saas_monitoring']
+        files_collection = db['files']
+        
+        # Get all files sorted by upload date descending
+        files = list(files_collection.find(
+            {},
+            {'_id': 1, 'filename': 1, 'saved_as': 1, 'file_type': 1, 
+             'file_size': 1, 'upload_date': 1, 'status': 1, 'log_count': 1}
+        ).sort('upload_date', -1))
+        
+        # Convert ObjectId to string
+        for file in files:
+            file['_id'] = str(file['_id'])
+        
+        # Calculate statistics
+        total_files = len(files)
+        total_logs = sum(file.get('log_count', 0) for file in files)
+        total_size = sum(file.get('file_size', 0) for file in files)
+        
+        return jsonify({
+            'success': True,
+            'files': files,
+            'stats': {
+                'total_files': total_files,
+                'total_logs': total_logs,
+                'total_size': total_size
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def delete_file(file_id):
+    """Delete a file from uploads folder and MongoDB"""
+    try:
+        if not mongo_client:
+            return jsonify({'error': 'MongoDB not available'}), 503
+        
+        from bson import ObjectId
+        
+        db = mongo_client['saas_monitoring']
+        files_collection = db['files']
+        
+        # Find the file document
+        file_doc = files_collection.find_one({'_id': ObjectId(file_id)})
+        
+        if not file_doc:
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+        
+        # Delete physical file
+        saved_filename = file_doc.get('saved_as')
+        if saved_filename:
+            file_path = os.path.join(UPLOAD_FOLDER, saved_filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Deleted file: {file_path}")
+        
+        # Delete MongoDB document
+        files_collection.delete_one({'_id': ObjectId(file_id)})
+        
+        return jsonify({
+            'success': True,
+            'message': f'File {file_doc.get("filename", "unknown")} deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

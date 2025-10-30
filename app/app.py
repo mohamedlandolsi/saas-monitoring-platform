@@ -3,15 +3,17 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional, Dict, Any, List, Tuple
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for, Response
 from flask_cors import CORS
+from flask_compress import Compress
 from elasticsearch import Elasticsearch
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 from redis import Redis
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import json
 import time
+import gzip
 from models.file import File
 from models.search_history import SearchHistory
 from models.saved_search import SavedSearch
@@ -22,9 +24,24 @@ from utils.errors import (
     ElasticsearchError, FileProcessingError, NotFoundError,
     format_error_response, handle_generic_exception
 )
+from utils.performance import (
+    connection_pool, get_es_client, get_mongo_client, get_redis_client,
+    QueryCache, cache_query, Pagination, ESQueryOptimizer,
+    ResponseCompression, PerformanceMonitor, measure_time
+)
 
 app = Flask(__name__)
 CORS(app)
+
+# Enable response compression (gzip)
+compress = Compress()
+compress.init_app(app)
+app.config['COMPRESS_MIMETYPES'] = [
+    'text/html', 'text/css', 'text/javascript', 
+    'application/json', 'application/javascript'
+]
+app.config['COMPRESS_LEVEL'] = 6  # Compression level (1-9)
+app.config['COMPRESS_MIN_SIZE'] = 1024  # Only compress responses > 1KB
 
 # Configure secret key for sessions
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -102,12 +119,12 @@ def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ============================================================================
-# Initialize Clients
+# Initialize Clients with Connection Pooling
 # ============================================================================
 
 def init_elasticsearch() -> Optional[Elasticsearch]:
     """
-    Initialize and test Elasticsearch client connection.
+    Initialize and test Elasticsearch client connection with pooling.
     
     Attempts to connect to Elasticsearch using the host specified in
     ELASTICSEARCH_HOST environment variable. Tests connection with ping.
@@ -120,9 +137,16 @@ def init_elasticsearch() -> Optional[Elasticsearch]:
     """
     es_host = os.getenv('ELASTICSEARCH_HOST', 'http://localhost:9200')
     try:
-        es = Elasticsearch([es_host], verify_certs=False, request_timeout=30)
+        # Initialize connection pool
+        mongo_uri = os.getenv('MONGODB_URI', 'mongodb://admin:password123@localhost:27017/')
+        redis_host = os.getenv('REDIS_HOST', 'localhost')
+        redis_port = int(os.getenv('REDIS_PORT', 6379))
+        
+        connection_pool.initialize(es_host, mongo_uri, redis_host, redis_port)
+        
+        es = connection_pool.get_es_client()
         if es.ping():
-            app.logger.info(f"✓ Connected to Elasticsearch at {es_host}")
+            app.logger.info(f"✓ Connected to Elasticsearch at {es_host} (with connection pooling)")
             return es
         else:
             app.logger.error(f"✗ Failed to ping Elasticsearch at {es_host}")
@@ -133,10 +157,11 @@ def init_elasticsearch() -> Optional[Elasticsearch]:
 
 def init_mongodb() -> Optional[MongoClient]:
     """
-    Initialize and test MongoDB client connection.
+    Initialize and test MongoDB client connection with pooling.
     
     Attempts to connect to MongoDB using the URI specified in
     MONGODB_URI environment variable. Tests connection with ping command.
+    Also creates necessary indexes for performance.
     
     Returns:
         Optional[MongoClient]: MongoDB client if connection successful, None otherwise
@@ -144,11 +169,40 @@ def init_mongodb() -> Optional[MongoClient]:
     Environment Variables:
         MONGODB_URI: MongoDB connection URI (default: mongodb://admin:password123@localhost:27017/)
     """
-    mongo_uri = os.getenv('MONGODB_URI', 'mongodb://admin:password123@localhost:27017/')
     try:
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        client = connection_pool.get_mongo_client()
         client.admin.command('ping')
-        app.logger.info(f"✓ Connected to MongoDB")
+        app.logger.info(f"✓ Connected to MongoDB (with connection pooling)")
+        
+        # Create performance indexes
+        db = client['saas_logs']
+        
+        # Files collection indexes
+        files_collection = db['files']
+        files_collection.create_index([('upload_date', ASCENDING)], background=True)
+        files_collection.create_index([('file_type', ASCENDING)], background=True)
+        files_collection.create_index([('status', ASCENDING)], background=True)
+        files_collection.create_index([('uploaded_by', ASCENDING)], background=True)
+        app.logger.info("✓ Created MongoDB indexes for files collection")
+        
+        # Search history indexes
+        search_history_collection = db['search_history']
+        search_history_collection.create_index([('user_id', ASCENDING)], background=True)
+        search_history_collection.create_index([('timestamp', ASCENDING)], background=True)
+        app.logger.info("✓ Created MongoDB indexes for search_history collection")
+        
+        # Saved searches indexes
+        saved_searches_collection = db['saved_searches']
+        saved_searches_collection.create_index([('user_id', ASCENDING)], background=True)
+        saved_searches_collection.create_index([('created_at', ASCENDING)], background=True)
+        app.logger.info("✓ Created MongoDB indexes for saved_searches collection")
+        
+        # Users collection indexes
+        users_collection = db['users']
+        users_collection.create_index([('username', ASCENDING)], unique=True, background=True)
+        users_collection.create_index([('email', ASCENDING)], unique=True, background=True)
+        app.logger.info("✓ Created MongoDB indexes for users collection")
+        
         return client
     except Exception as e:
         app.logger.error(f"✗ MongoDB connection error: {str(e)}")
@@ -156,7 +210,7 @@ def init_mongodb() -> Optional[MongoClient]:
 
 def init_redis() -> Optional[Redis]:
     """
-    Initialize and test Redis client connection.
+    Initialize and test Redis client connection with pooling.
     
     Attempts to connect to Redis using the host and port specified in
     environment variables. Tests connection with ping command.
@@ -171,9 +225,9 @@ def init_redis() -> Optional[Redis]:
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     try:
-        client = Redis(host=redis_host, port=redis_port, decode_responses=True, socket_connect_timeout=5)
+        client = connection_pool.get_redis_client()
         client.ping()
-        app.logger.info(f"✓ Connected to Redis at {redis_host}:{redis_port}")
+        app.logger.info(f"✓ Connected to Redis at {redis_host}:{redis_port} (with connection pooling)")
         return client
     except Exception as e:
         app.logger.error(f"✗ Redis connection error: {str(e)}")
@@ -983,9 +1037,10 @@ def get_stats() -> Dict[str, Any]:
     return jsonify(stats)
 
 @app.route('/api/search', methods=['POST'])
+@measure_time('/api/search', 'api')
 @cache_result(timeout=300, key_prefix="search")
 def search_logs():
-    """Search logs in Elasticsearch with advanced filters (cached for 5 min)"""
+    """Search logs in Elasticsearch with advanced filters (cached for 5 min, optimized)"""
     if not es_client:
         app.logger.error("Search failed: Elasticsearch client not initialized")
         raise ElasticsearchError('Elasticsearch client not initialized', operation='search')
@@ -1122,20 +1177,35 @@ def search_logs():
         else:
             query = {'match_all': {}}
         
-        # Build search body
+        # Build search body with optimization
         search_body = {
             'query': query,
             'sort': [
                 {'@timestamp': {'order': 'desc'}}
             ],
             'from': (page - 1) * per_page,
-            'size': per_page
+            'size': per_page,
+            # Source filtering - only return needed fields
+            '_source': [
+                '@timestamp', 'level', 'endpoint', 'status_code',
+                'response_time_ms', 'message', 'server', 'user_id', 'client_ip'
+            ],
+            'track_total_hits': True  # Get accurate total count
         }
         
-        # Execute search
+        # Optimize query
+        optimizer = ESQueryOptimizer()
+        search_body = optimizer.optimize_query(search_body)
+        
+        # Execute search with timing
         start_time = time.time()
-        response = es_client.search(index='saas-logs-*', body=search_body)
+        response = es_client.search(index='saas-logs-*', body=search_body, request_timeout=30)
         execution_time_ms = (time.time() - start_time) * 1000
+        
+        # Record ES query time
+        if redis_client:
+            monitor = PerformanceMonitor(redis_client)
+            monitor.record_es_query_time('search_logs', execution_time_ms)
         
         # Format results
         hits = response['hits']['hits']
@@ -1205,8 +1275,9 @@ def search_logs():
         )
 
 @app.route('/api/export', methods=['POST'])
+@measure_time('/api/export', 'api')
 def export_logs():
-    """Export logs to CSV with same filters as search"""
+    """Export logs to CSV with same filters as search (optimized with scroll API)"""
     if not es_client:
         return jsonify({'error': 'Elasticsearch client not initialized'}), 500
     
@@ -1330,17 +1401,38 @@ def export_logs():
         else:
             query = {'match_all': {}}
         
-        # Build search body - get up to 10000 results (Elasticsearch default max)
+        # Build search body with source filtering
         search_body = {
             'query': query,
             'sort': [
                 {'@timestamp': {'order': 'desc'}}
             ],
-            'size': 10000  # Maximum results to export
+            '_source': [
+                '@timestamp', 'level', 'endpoint', 'status_code',
+                'response_time_ms', 'message', 'client_ip', 'user_id', 'server'
+            ]
         }
         
-        # Execute search
-        response = es_client.search(index='saas-logs-*', body=search_body)
+        # Use scroll API for large exports (efficient for 10k+ records)
+        app.logger.info("Starting export with scroll API")
+        start_time = time.time()
+        
+        optimizer = ESQueryOptimizer()
+        all_hits = optimizer.scroll_query(
+            es_client=es_client,
+            index='saas-logs-*',
+            query=search_body,
+            scroll='2m',
+            size=1000  # Batch size
+        )
+        
+        export_time_ms = (time.time() - start_time) * 1000
+        app.logger.info(f"Export fetched {len(all_hits)} documents in {export_time_ms:.2f}ms")
+        
+        # Record ES query time
+        if redis_client:
+            monitor = PerformanceMonitor(redis_client)
+            monitor.record_es_query_time('export_logs', export_time_ms)
         
         # Create CSV in memory
         output = io.StringIO()
@@ -1360,8 +1452,7 @@ def export_logs():
         ])
         
         # Write data rows
-        hits = response['hits']['hits']
-        for hit in hits:
+        for hit in all_hits:
             source = hit['_source']
             csv_writer.writerow([
                 source.get('@timestamp', ''),
@@ -1381,13 +1472,27 @@ def export_logs():
         
         # Create response with CSV data
         output.seek(0)
-        response = Response(
-            output.getvalue(),
-            mimetype='text/csv',
-            headers={
-                'Content-Disposition': f'attachment; filename={filename}'
-            }
-        )
+        csv_data = output.getvalue()
+        
+        # Compress if large
+        if len(csv_data) > 10240:  # > 10KB
+            app.logger.info(f"Compressing export ({len(csv_data)} bytes)")
+            response = Response(
+                gzip.compress(csv_data.encode('utf-8')),
+                mimetype='application/gzip',
+                headers={
+                    'Content-Disposition': f'attachment; filename={filename}.gz',
+                    'Content-Encoding': 'gzip'
+                }
+            )
+        else:
+            response = Response(
+                csv_data,
+                mimetype='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename={filename}'
+                }
+            )
         
         return response
         
@@ -2454,6 +2559,146 @@ def get_error_rate() -> Tuple[Dict[str, Any], int]:
             operation='date_histogram',
             details={'error': str(e)}
         )
+
+# ============================================================================
+# Performance Monitoring Endpoint
+# ============================================================================
+
+@app.route('/api/performance', methods=['GET'])
+def get_performance_metrics() -> Tuple[Dict[str, Any], int]:
+    """
+    Get performance metrics for the application.
+    
+    Provides insights into:
+    - Average API response times
+    - Elasticsearch query times
+    - MongoDB query times
+    - Cache hit rates
+    
+    Returns:
+        Tuple[Dict[str, Any], int]: JSON response with performance data, status code
+        
+    Response Format:
+        {
+            "success": true,
+            "metrics": {
+                "api_response_times": {
+                    "api:/api/search": 145.23,
+                    "api:/api/upload": 523.45,
+                    ...
+                },
+                "elasticsearch_query_times": {
+                    "es:search_logs": 89.12,
+                    "es:aggregations": 156.78,
+                    ...
+                },
+                "mongodb_query_times": {
+                    "mongo:files": 23.45,
+                    "mongo:search_history": 12.34,
+                    ...
+                },
+                "cache_statistics": {
+                    "total_keys": 150,
+                    "hits": 1234,
+                    "misses": 567,
+                    "hit_rate": 68.5
+                }
+            },
+            "timestamp": "2025-10-30T12:34:56Z"
+        }
+    
+    Raises:
+        DatabaseError: If Redis is not available
+    """
+    try:
+        if not redis_client:
+            raise DatabaseError('Redis client not initialized', operation='performance_metrics')
+        
+        # Get performance monitor
+        monitor = PerformanceMonitor(redis_client)
+        
+        # Get all metrics
+        metrics = monitor.get_all_metrics()
+        
+        # Get cache statistics
+        cache = QueryCache(redis_client)
+        cache_stats = cache.get_stats()
+        
+        # Format response
+        response_data = {
+            'success': True,
+            'metrics': {
+                'api_response_times': metrics.get('api_times', {}),
+                'elasticsearch_query_times': metrics.get('es_query_times', {}),
+                'mongodb_query_times': metrics.get('mongo_query_times', {}),
+                'cache_statistics': cache_stats
+            },
+            'timestamp': datetime.utcnow().isoformat() + 'Z'
+        }
+        
+        app.logger.info("Performance metrics retrieved successfully")
+        return jsonify(response_data), 200
+        
+    except DatabaseError:
+        raise
+    except Exception as e:
+        app.logger.error(f"Error fetching performance metrics: {str(e)}", exc_info=True)
+        raise DatabaseError(
+            'Failed to fetch performance metrics',
+            operation='performance_metrics',
+            details={'error': str(e)}
+        )
+
+
+# ============================================================================
+# Global Request Handlers for Performance Tracking
+# ============================================================================
+
+@app.before_request
+def before_request():
+    """Track request start time for performance monitoring."""
+    request.start_time = time.time()
+
+
+@app.after_request
+def after_request(response):
+    """
+    Log request details and track performance metrics.
+    
+    - Records API response times
+    - Logs request duration
+    - Tracks endpoint performance
+    """
+    # Calculate request duration
+    if hasattr(request, 'start_time'):
+        duration = (time.time() - request.start_time) * 1000  # Convert to ms
+        
+        # Log request details
+        app.logger.info(
+            f"{request.method} {request.path} - {response.status_code} - {duration:.2f}ms"
+        )
+        
+        # Record API performance metric
+        if redis_client and request.path.startswith('/api/'):
+            try:
+                monitor = PerformanceMonitor(redis_client)
+                monitor.record_api_time(request.path, duration)
+            except Exception as e:
+                app.logger.error(f"Error recording API metric: {e}")
+    
+    return response
+
+
+@app.errorhandler(TimeoutError)
+def handle_timeout(error):
+    """Handle request timeout errors."""
+    app.logger.error(f"Request timeout: {str(error)}")
+    return jsonify({
+        'success': False,
+        'error': 'Request timeout',
+        'message': 'The request took too long to process. Please try again.'
+    }), 504
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -222,7 +222,7 @@
 
             <!-- Register Link -->
             <div class="register-link">
-                Don't have an account? <a href="#" id="registerLink">Create one</a>
+                Don't have an account? <a href="/register">Create one</a>
             </div>
 
             <!-- Back to Dashboard -->
@@ -333,12 +333,6 @@
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = originalText;
             }
-        });
-
-        // Handle register link (placeholder)
-        document.getElementById('registerLink').addEventListener('click', function(e) {
-            e.preventDefault();
-            showAlert('Registration feature coming soon! Contact your administrator.', 'info');
         });
 
         // Check for URL parameters (e.g., logout message)

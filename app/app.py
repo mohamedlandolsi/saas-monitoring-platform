@@ -485,6 +485,22 @@ def login_page():
     
     return render_template('login.html')
 
+@app.route('/register')
+def register_page():
+    """
+    Render the registration page.
+    
+    If already logged in, redirect to dashboard.
+    
+    Returns:
+        str: Rendered HTML template for registration form
+    """
+    # If already logged in, redirect to dashboard
+    if get_current_user():
+        return redirect(url_for('index'))
+    
+    return render_template('register.html')
+
 # ============================================================================
 # Authentication API Endpoints
 # ============================================================================
@@ -611,9 +627,9 @@ def api_register() -> Tuple[Dict[str, Any], int]:
     
     Request Body:
         {
-            "username": str,    # Required: unique username
-            "email": str,       # Required: unique email
-            "password": str,    # Required: plain text password (will be hashed)
+            "username": str,    # Required: 3-20 chars, alphanumeric + underscore
+            "email": str,       # Required: valid email format
+            "password": str,    # Required: min 8 chars
             "full_name": str    # Optional: user's full name
         }
     
@@ -624,7 +640,8 @@ def api_register() -> Tuple[Dict[str, Any], int]:
         {
             "success": true,
             "message": "Registration successful",
-            "user_id": str
+            "user_id": str,
+            "redirect": "/dashboard"
         }
     
     Raises:
@@ -647,19 +664,46 @@ def api_register() -> Tuple[Dict[str, Any], int]:
         password = data.get('password', '')
         full_name = data.get('full_name', '').strip()
         
+        # Validate username
         if not username:
             raise ValidationError('Username is required', field='username')
         
+        if len(username) < 3:
+            raise ValidationError('Username must be at least 3 characters long', field='username')
+        
+        if len(username) > 20:
+            raise ValidationError('Username must be at most 20 characters long', field='username')
+        
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            raise ValidationError(
+                'Username can only contain letters, numbers, and underscores',
+                field='username'
+            )
+        
+        # Validate email
         if not email:
             raise ValidationError('Email is required', field='email')
         
+        # Simple email validation
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            raise ValidationError('Invalid email format', field='email')
+        
+        # Validate password
         if not password:
             raise ValidationError('Password is required', field='password')
         
-        # Validate password strength (minimum 6 characters)
-        if len(password) < 6:
+        if len(password) < 8:
             raise ValidationError(
-                'Password must be at least 6 characters long',
+                'Password must be at least 8 characters long',
+                field='password'
+            )
+        
+        # Check password complexity (at least one letter and one number)
+        if not re.search(r'[a-zA-Z]', password) or not re.search(r'[0-9]', password):
+            raise ValidationError(
+                'Password must contain at least one letter and one number',
                 field='password'
             )
         
@@ -678,12 +722,16 @@ def api_register() -> Tuple[Dict[str, Any], int]:
         if not user_id:
             raise DatabaseError('Failed to create user', operation='register')
         
+        # Create session for the new user
+        create_session(user_id, remember_me=False)
+        
         app.logger.info(f"New user registered: {username} ({user_id}) from {request.remote_addr}")
         
         return jsonify({
             'success': True,
             'message': 'Registration successful',
-            'user_id': user_id
+            'user_id': user_id,
+            'redirect': '/'
         }), 201
         
     except (ValidationError, DatabaseError):

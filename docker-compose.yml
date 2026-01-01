@@ -1,14 +1,24 @@
-version: '3.8'
-
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      # Reduced heap size for lower memory/CPU usage
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m -XX:+UseG1GC -XX:G1HeapRegionSize=4m -XX:MaxGCPauseMillis=200
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
+      # Performance optimizations for development
+      - xpack.monitoring.collection.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.graph.enabled=false
+      - indices.query.bool.max_clause_count=1024
+      # Reduce thread pools
+      - thread_pool.write.queue_size=200
+      - thread_pool.search.queue_size=200
+      # Disable unnecessary features
+      - cluster.routing.allocation.disk.threshold_enabled=false
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -16,11 +26,21 @@ services:
       - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - elk
+    # CPU and memory limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
   logstash:
     image: docker.elastic.co/logstash/logstash:8.11.0
@@ -32,17 +52,32 @@ services:
       - "5044:5044"
       - "9600:9600"
     environment:
-      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+      # Reduced heap and optimized GC
+      - LS_JAVA_OPTS=-Xms128m -Xmx128m -XX:+UseG1GC
+      # Reduce workers and batch size
+      - PIPELINE_WORKERS=1
+      - PIPELINE_BATCH_SIZE=125
+      - PIPELINE_BATCH_DELAY=50
     networks:
       - elk
     depends_on:
       elasticsearch:
         condition: service_healthy
+    # CPU and memory limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9600/_node/stats || exit 1"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 5
+      start_period: 45s
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
@@ -53,16 +88,30 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=
+      # Reduce Kibana resource usage
+      - NODE_OPTIONS=--max-old-space-size=256
+      - LOGGING_QUIET=true
+      - TELEMETRY_ENABLED=false
     networks:
       - elk
     depends_on:
       elasticsearch:
         condition: service_healthy
+    # CPU and memory limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
       retries: 5
+      start_period: 90s
 
   mongodb:
     image: mongo:7
@@ -76,22 +125,44 @@ services:
       - mongodb_data:/data/db
     networks:
       - elk
+    # CPU and memory limits  
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    # Use wiredTiger cache size limit (minimum 0.25GB)
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/27017'"]
       interval: 30s
-      timeout: 10s
-      retries: 5
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Reduced memory and optimized for low CPU
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru --save "" --appendonly no
     volumes:
       - redis_data:/data
     networks:
       - elk
+    # CPU and memory limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -113,6 +184,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - FLASK_ENV=production
+      # Limit Flask threads
+      - FLASK_RUN_THREADED=false
     networks:
       - elk
     depends_on:
@@ -122,6 +195,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # CPU and memory limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5000/api/health || exit 1"]
       interval: 30s

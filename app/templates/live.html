@@ -9,229 +9,211 @@
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --bg-dark: #1a1a2e;
-            --bg-card: #16213e;
-            --text-primary: #eee;
-            --text-secondary: #aaa;
-            --accent-blue: #0ea5e9;
-            --accent-green: #22c55e;
-            --accent-red: #ef4444;
-            --accent-yellow: #eab308;
-            --accent-purple: #8b5cf6;
-        }
         body {
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            min-height: 100vh;
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .navbar {
-            background: linear-gradient(135deg, var(--bg-card) 0%, #1e3a5f 100%);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
         .navbar.flash-error {
             animation: flashError 0.5s ease-in-out 3;
         }
         @keyframes flashError {
-            0%, 100% { background: linear-gradient(135deg, var(--bg-card) 0%, #1e3a5f 100%); }
-            50% { background: linear-gradient(135deg, #5c1a1a 0%, #8b2020 100%); }
+            0%, 100% { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+            50% { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,.1);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
         }
         .connection-indicator {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 8px;
+            margin-right: 6px;
             animation: pulse 2s infinite;
         }
-        .connection-indicator.connected { background: var(--accent-green); }
-        .connection-indicator.disconnected { background: var(--accent-red); animation: none; }
-        .connection-indicator.connecting { background: var(--accent-yellow); }
+        .connection-indicator.connected { background: #28a745; }
+        .connection-indicator.disconnected { background: #dc3545; animation: none; }
+        .connection-indicator.connecting { background: #ffc107; }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        .metrics-card {
-            background: var(--bg-card);
-            border-radius: 12px;
+        .kpi-card {
             padding: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
         }
-        .metrics-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        }
-        .metric-value {
+        .kpi-icon {
             font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
         }
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .kpi-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .kpi-green { color: #28a745; }
+        .kpi-yellow { color: #ffc107; }
+        .kpi-red { color: #dc3545; }
+        .kpi-blue { color: #007bff; }
+        .kpi-purple { color: #6f42c1; }
         .log-container {
-            background: var(--bg-card);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
-            max-height: 600px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,.1);
+            max-height: 500px;
             overflow-y: auto;
-            font-family: 'Fira Code', 'Consolas', monospace;
+            font-family: 'Consolas', 'Monaco', monospace;
             font-size: 0.85rem;
         }
         .log-entry {
-            padding: 0.5rem 1rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid #eee;
             transition: background 0.2s;
             animation: slideIn 0.3s ease-out;
         }
         @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
+            from { opacity: 0; transform: translateX(-10px); }
             to { opacity: 1; transform: translateX(0); }
         }
         .log-entry:hover {
-            background: rgba(255,255,255,0.05);
+            background: #f8f9fa;
         }
         .log-entry.level-error, .log-entry.level-critical {
-            background: rgba(239, 68, 68, 0.15);
-            border-left: 3px solid var(--accent-red);
+            background: #fff5f5;
+            border-left: 4px solid #dc3545;
         }
         .log-entry.level-warning {
-            background: rgba(234, 179, 8, 0.1);
-            border-left: 3px solid var(--accent-yellow);
+            background: #fffbeb;
+            border-left: 4px solid #ffc107;
         }
         .log-entry.level-info {
-            border-left: 3px solid var(--accent-blue);
+            border-left: 4px solid #007bff;
         }
         .log-entry.level-debug {
-            border-left: 3px solid var(--accent-purple);
-            opacity: 0.7;
+            border-left: 4px solid #6f42c1;
+            opacity: 0.8;
         }
         .log-timestamp {
-            color: var(--text-secondary);
+            color: #6c757d;
             font-size: 0.75rem;
-            min-width: 180px;
+            min-width: 160px;
         }
         .log-level {
             font-weight: 600;
-            min-width: 80px;
+            min-width: 70px;
             text-transform: uppercase;
+            font-size: 0.75rem;
         }
-        .log-level.error, .log-level.critical { color: var(--accent-red); }
-        .log-level.warning { color: var(--accent-yellow); }
-        .log-level.info { color: var(--accent-blue); }
-        .log-level.debug { color: var(--accent-purple); }
+        .log-level.error, .log-level.critical { color: #dc3545; }
+        .log-level.warning { color: #856404; }
+        .log-level.info { color: #007bff; }
+        .log-level.debug { color: #6f42c1; }
         .log-message {
             flex: 1;
             word-break: break-word;
+            color: #333;
         }
-        .control-panel {
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 1rem;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .btn-control {
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .btn-control.active {
-            box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+        .control-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 0 20px rgba(0,0,0,.1);
         }
         .filter-select {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: var(--text-primary);
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            padding: 0.4rem 0.75rem;
         }
         .filter-select:focus {
-            background: rgba(255,255,255,0.15);
-            border-color: var(--accent-blue);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
-        .chart-container {
-            background: var(--bg-card);
-            border-radius: 12px;
+        .chart-card {
+            background: #fff;
+            border-radius: 10px;
             padding: 1rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            height: 200px;
-        }
-        .badge-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: var(--accent-red);
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            box-shadow: 0 0 20px rgba(0,0,0,.1);
+            height: 180px;
         }
         .sound-toggle {
             cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 8px;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
             transition: background 0.2s;
         }
         .sound-toggle:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.2);
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark" id="mainNavbar">
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark mb-4" id="mainNavbar">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <i class="bi bi-activity me-2"></i>
-                <span>SaaS Monitor</span>
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-graph-up"></i> SaaS Log Monitoring Platform
             </a>
             <div class="d-flex align-items-center">
                 <span class="connection-indicator disconnected" id="connectionIndicator"></span>
-                <span id="connectionStatus" class="me-3">Disconnected</span>
-                <span class="sound-toggle" id="soundToggle" title="Toggle alert sound">
+                <span class="text-white me-3" id="connectionStatus">Disconnected</span>
+                <span class="sound-toggle text-white" id="soundToggle" title="Toggle alert sound">
                     <i class="bi bi-volume-up" id="soundIcon"></i>
                 </span>
                 <a href="/" class="btn btn-outline-light btn-sm ms-3">
-                    <i class="bi bi-house me-1"></i> Dashboard
+                    <i class="bi bi-house"></i> Dashboard
+                </a>
+                <a href="/search" class="btn btn-outline-light btn-sm ms-2">
+                    <i class="bi bi-search"></i> Search
                 </a>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid py-4">
+    <div class="container-fluid">
         <!-- Live Metrics Row -->
         <div class="row g-3 mb-4">
             <div class="col-md-3">
-                <div class="metrics-card text-center">
-                    <div class="metric-value" id="logsPerSecond">0</div>
-                    <div class="text-secondary">Logs/Second</div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon kpi-blue"><i class="bi bi-lightning-charge"></i></div>
+                    <div class="kpi-value kpi-blue" id="logsPerSecond">0</div>
+                    <div class="kpi-label">Logs/Second</div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="metrics-card text-center">
-                    <div class="metric-value" id="errorsPerMinute">0</div>
-                    <div class="text-secondary">Errors/Minute</div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon kpi-red"><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="kpi-value kpi-red" id="errorsPerMinute">0</div>
+                    <div class="kpi-label">Errors/Minute</div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="metrics-card text-center">
-                    <div class="metric-value" id="activeRequests">0</div>
-                    <div class="text-secondary">Active Requests</div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon kpi-green"><i class="bi bi-activity"></i></div>
+                    <div class="kpi-value kpi-green" id="activeRequests">0</div>
+                    <div class="kpi-label">Active Requests</div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="metrics-card text-center">
-                    <div class="metric-value" id="connectedUsers">0</div>
-                    <div class="text-secondary">Connected Users</div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon kpi-purple"><i class="bi bi-people"></i></div>
+                    <div class="kpi-value kpi-purple" id="connectedUsers">0</div>
+                    <div class="kpi-label">Connected Users</div>
                 </div>
             </div>
         </div>
@@ -239,7 +221,7 @@
         <!-- Real-time Chart -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="chart-container">
+                <div class="chart-card">
                     <canvas id="logsChart"></canvas>
                 </div>
             </div>
@@ -248,15 +230,15 @@
         <!-- Control Panel -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="control-panel d-flex flex-wrap align-items-center gap-3">
-                    <button class="btn btn-primary btn-control" id="pauseBtn">
+                <div class="control-card d-flex flex-wrap align-items-center gap-3">
+                    <button class="btn btn-primary" id="pauseBtn">
                         <i class="bi bi-pause-fill me-1"></i> Pause
                     </button>
-                    <button class="btn btn-outline-secondary btn-control" id="clearBtn">
+                    <button class="btn btn-outline-secondary" id="clearBtn">
                         <i class="bi bi-trash me-1"></i> Clear
                     </button>
-                    <div class="vr mx-2" style="height: 30px; opacity: 0.3;"></div>
-                    <select class="filter-select" id="levelFilter">
+                    <div class="vr mx-2"></div>
+                    <select class="form-select filter-select" id="levelFilter" style="width: 140px;">
                         <option value="ALL">All Levels</option>
                         <option value="DEBUG">DEBUG</option>
                         <option value="INFO">INFO</option>
@@ -264,14 +246,15 @@
                         <option value="ERROR">ERROR</option>
                         <option value="CRITICAL">CRITICAL</option>
                     </select>
-                    <input type="text" class="filter-select" id="endpointFilter" 
+                    <input type="text" class="form-control filter-select" id="endpointFilter" 
                            placeholder="Filter by endpoint..." style="width: 200px;">
-                    <div class="vr mx-2" style="height: 30px; opacity: 0.3;"></div>
+                    <div class="vr mx-2"></div>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="autoScrollToggle" checked>
-                        <label class="form-check-label text-secondary" for="autoScrollToggle">Auto-scroll</label>
+                        <label class="form-check-label" for="autoScrollToggle">Auto-scroll</label>
                     </div>
-                    <div class="ms-auto text-secondary">
+                    <div class="ms-auto text-muted">
+                        <i class="bi bi-stack me-1"></i>
                         <span id="logCount">0</span> logs in buffer
                     </div>
                 </div>
@@ -282,9 +265,10 @@
         <div class="row">
             <div class="col-12">
                 <div class="log-container" id="logContainer">
-                    <div class="text-center text-secondary py-5" id="emptyState">
+                    <div class="text-center text-muted py-5" id="emptyState">
                         <i class="bi bi-hourglass-split fs-1"></i>
                         <p class="mt-2">Waiting for logs...</p>
+                        <small>Logs will appear here in real-time</small>
                     </div>
                 </div>
             </div>
@@ -293,13 +277,13 @@
 
     <!-- Hidden audio element for alerts -->
     <audio id="alertSound" preload="auto">
-        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAoAJpPZ8NqxfhgiJHnN6eObcSkkSYK94Md/Vh8yQXu02LFyOyolPG6iwqRsRzk7Tl+QqpRIJCIlL1ZykqZwOS4uLkJXfoJ+ZEo4Mz1OX3F5dGNOPzU8RVNjbW5lVkg+OD5JVV5jY11VTEhGTE9VWltWUU5LSUhJTVFVV1dVU1BQUE5OT09QUVFQT05NTk5OT09OT09OTU1OTk5OTk1NTU1NTU1NTU5NTU1NTU1NTU5OTU1NTU1NTk5NTU5OTU5OTk5OTk5OTk5OT09OTk5OTk9PT09PT09PT09PUE9PT09PUFBQUFBQUFBQUFBQUVBQUFFRUVFRUVFRUVJSUlJSUlJSU1NSUlNTU1NTU1NTU1NUVFRUVFRUVFRUVVVVVVVVVVZWV1dXV1dXV1hYWFhYWFhYWFhZWVlZWVlaWlpaWlpaW1tbW1tbW1xcXFxcXF1dXV1dXV1dXl5eXl5eX19fX19fX2BgYGBgYGBhYWFhYWFhYWJiYmJiYmNjY2NjY2RkZGRkZGRlZWVlZWVmZmZmZmZnZ2dnZ2dnaGhoaGhoaGlpaWlpaWpqampqamtra2tra2tsbGxsbG1tbW1tbW5ubm5ubnBwcHBwcHFxcXFxcXJycnJycnNzc3Nzc3R0dHR0dHV1dXV1dXZ2dnZ2dnd3d3d3d3h4eHh4eHl5" type="audio/wav">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleg==" type="audio/wav">
     </audio>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Configuration
-        const MAX_LOGS = 500;  // Circular buffer size
+        const MAX_LOGS = 500;
         let logs = [];
         let isPaused = false;
         let autoScroll = true;
@@ -342,8 +326,8 @@
                     datasets: [{
                         label: 'Logs/sec',
                         data: [],
-                        borderColor: '#0ea5e9',
-                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
                         fill: true,
                         tension: 0.4,
                         pointRadius: 0
@@ -357,8 +341,8 @@
                         x: { display: false },
                         y: { 
                             beginAtZero: true,
-                            grid: { color: 'rgba(255,255,255,0.1)' },
-                            ticks: { color: '#aaa' }
+                            grid: { color: '#eee' },
+                            ticks: { color: '#6c757d' }
                         }
                     },
                     plugins: {
@@ -372,7 +356,6 @@
         socket.on('connect', () => {
             connectionIndicator.className = 'connection-indicator connected';
             connectionStatus.textContent = 'Connected';
-            // Subscribe with current filters
             socket.emit('subscribe_logs', {
                 level: levelFilter.value,
                 endpoint: endpointFilter.value
@@ -396,7 +379,6 @@
             data.logs.forEach(log => {
                 addLog(log);
                 
-                // Check for errors
                 if (['ERROR', 'CRITICAL'].includes(log.level?.toUpperCase())) {
                     unreadErrors++;
                     updateTabBadge();
@@ -413,44 +395,34 @@
             document.getElementById('errorsPerMinute').textContent = metrics.errors_per_minute;
             document.getElementById('activeRequests').textContent = metrics.active_requests;
             document.getElementById('connectedUsers').textContent = metrics.connected_users;
-            
-            // Update chart
             updateChart(metrics.logs_per_second);
         });
 
         // Add log to display
         function addLog(log) {
-            // Remove empty state
             if (emptyState) emptyState.style.display = 'none';
             
-            // Add to array
             logs.unshift(log);
             
-            // Circular buffer - remove old logs
             if (logs.length > MAX_LOGS) {
                 logs.pop();
                 logContainer.lastChild?.remove();
             }
             
-            // Create log entry
             const entry = document.createElement('div');
             entry.className = `log-entry level-${(log.level || 'info').toLowerCase()}`;
             entry.innerHTML = `
                 <div class="d-flex align-items-start gap-3">
                     <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
                     <span class="log-level ${(log.level || 'info').toLowerCase()}">${log.level || 'INFO'}</span>
-                    <span class="text-secondary" style="min-width: 150px;">${log.endpoint || '-'}</span>
+                    <span class="text-muted" style="min-width: 140px;"><code>${log.endpoint || '-'}</code></span>
                     <span class="log-message">${escapeHtml(log.message || '')}</span>
                 </div>
             `;
             
-            // Insert at top
             logContainer.insertBefore(entry, logContainer.firstChild);
-            
-            // Update count
             logCount.textContent = logs.length;
             
-            // Auto-scroll
             if (autoScroll) {
                 logContainer.scrollTop = 0;
             }
@@ -565,13 +537,11 @@
             soundIcon.className = soundEnabled ? 'bi bi-volume-up' : 'bi bi-volume-mute';
         });
 
-        // Reset unread count on focus
         window.addEventListener('focus', () => {
             unreadErrors = 0;
             updateTabBadge();
         });
 
-        // Request notification permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
@@ -584,7 +554,6 @@
             };
         }
 
-        // Initialize
         initChart();
     </script>
 </body>

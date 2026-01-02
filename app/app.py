@@ -14,6 +14,8 @@ from werkzeug.utils import secure_filename
 import json
 import time
 import gzip
+import threading
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from models.file import File
 from models.search_history import SearchHistory
 from models.saved_search import SavedSearch
@@ -32,6 +34,17 @@ from utils.performance import (
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialize Socket.IO with Redis message queue for scalability
+redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379')
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*",
+    async_mode='threading',
+    message_queue=redis_url,
+    logger=True,
+    engineio_logger=True
+)
 
 # Enable response compression (gzip)
 compress = Compress()
@@ -2758,6 +2771,274 @@ def handle_timeout(error):
         'message': 'The request took too long to process. Please try again.'
     }), 504
 
+# ============================================================================
+# WebSocket Event Handlers for Real-Time Streaming
+# ============================================================================
+
+# Track connected clients and their filters
+connected_clients = {}
+live_streaming_active = True
+last_log_timestamp = None
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle new WebSocket connection."""
+    client_id = request.sid
+    connected_clients[client_id] = {
+        'connected_at': datetime.utcnow(),
+        'filters': {'level': 'ALL', 'endpoint': ''},
+        'paused': False
+    }
+    app.logger.info(f"WebSocket client connected: {client_id} (Total: {len(connected_clients)})")
+    emit('connection_status', {'status': 'connected', 'client_id': client_id})
+    
+    # Send current metrics on connect
+    try:
+        metrics = get_realtime_metrics()
+        emit('metrics_update', metrics)
+    except Exception as e:
+        app.logger.error(f"Error sending initial metrics: {e}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle WebSocket disconnection."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        del connected_clients[client_id]
+    app.logger.info(f"WebSocket client disconnected: {client_id} (Total: {len(connected_clients)})")
+
+@socketio.on('subscribe_logs')
+def handle_subscribe_logs(data):
+    """Subscribe to live log stream with optional filters."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        connected_clients[client_id]['filters'] = {
+            'level': data.get('level', 'ALL'),
+            'endpoint': data.get('endpoint', '')
+        }
+        connected_clients[client_id]['paused'] = False
+        app.logger.info(f"Client {client_id} subscribed with filters: {connected_clients[client_id]['filters']}")
+        emit('subscription_confirmed', {'filters': connected_clients[client_id]['filters']})
+
+@socketio.on('pause_stream')
+def handle_pause_stream():
+    """Pause log stream for client."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        connected_clients[client_id]['paused'] = True
+        emit('stream_paused', {'paused': True})
+
+@socketio.on('resume_stream')
+def handle_resume_stream():
+    """Resume log stream for client."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        connected_clients[client_id]['paused'] = False
+        emit('stream_resumed', {'paused': False})
+
+@socketio.on('update_filters')
+def handle_update_filters(data):
+    """Update client's log filters."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        connected_clients[client_id]['filters'] = {
+            'level': data.get('level', 'ALL'),
+            'endpoint': data.get('endpoint', '')
+        }
+        emit('filters_updated', {'filters': connected_clients[client_id]['filters']})
+
+def get_realtime_metrics():
+    """Get real-time metrics for live dashboard."""
+    metrics = {
+        'logs_per_second': 0,
+        'errors_per_minute': 0,
+        'active_requests': 0,
+        'connected_users': len(connected_clients),
+        'timestamp': datetime.utcnow().isoformat()
+    }
+    
+    if not es_client:
+        return metrics
+    
+    try:
+        # Logs in last second
+        count_1s = es_client.count(
+            index='saas-logs-*',
+            body={'query': {'range': {'@timestamp': {'gte': 'now-1s'}}}}
+        )
+        metrics['logs_per_second'] = count_1s.get('count', 0)
+        
+        # Errors in last minute
+        error_count = es_client.count(
+            index='saas-logs-*',
+            body={
+                'query': {
+                    'bool': {
+                        'must': [
+                            {'range': {'@timestamp': {'gte': 'now-1m'}}},
+                            {'terms': {'level.keyword': ['ERROR', 'CRITICAL']}}
+                        ]
+                    }
+                }
+            }
+        )
+        metrics['errors_per_minute'] = error_count.get('count', 0)
+        
+        # Active requests (logs in last 5 seconds)
+        active = es_client.count(
+            index='saas-logs-*',
+            body={'query': {'range': {'@timestamp': {'gte': 'now-5s'}}}}
+        )
+        metrics['active_requests'] = active.get('count', 0)
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching real-time metrics: {e}")
+    
+    return metrics
+
+def fetch_new_logs(since_timestamp=None):
+    """Fetch new logs since given timestamp."""
+    if not es_client:
+        return []
+    
+    try:
+        query = {'match_all': {}}
+        if since_timestamp:
+            query = {'range': {'@timestamp': {'gt': since_timestamp}}}
+        
+        result = es_client.search(
+            index='saas-logs-*',
+            body={
+                'query': query,
+                'sort': [{'@timestamp': {'order': 'desc'}}],
+                'size': 50,
+                '_source': ['@timestamp', 'level', 'endpoint', 'status_code', 
+                           'response_time_ms', 'message', 'server', 'client_ip']
+            }
+        )
+        
+        logs = []
+        for hit in result['hits']['hits']:
+            source = hit['_source']
+            logs.append({
+                'id': hit['_id'],
+                'timestamp': source.get('@timestamp'),
+                'level': source.get('level', 'INFO'),
+                'endpoint': source.get('endpoint', ''),
+                'status_code': source.get('status_code'),
+                'response_time_ms': source.get('response_time_ms'),
+                'message': source.get('message', ''),
+                'server': source.get('server', ''),
+                'client_ip': source.get('client_ip', '')
+            })
+        
+        return logs
+    except Exception as e:
+        app.logger.error(f"Error fetching new logs: {e}")
+        return []
+
+def log_matches_filters(log, filters):
+    """Check if log matches client's filters."""
+    # Level filter
+    if filters.get('level') and filters['level'] != 'ALL':
+        if log.get('level', '').upper() != filters['level'].upper():
+            return False
+    
+    # Endpoint filter
+    if filters.get('endpoint'):
+        if filters['endpoint'].lower() not in (log.get('endpoint', '') or '').lower():
+            return False
+    
+    return True
+
+def background_log_streaming():
+    """Background thread to stream logs to connected clients."""
+    global last_log_timestamp
+    
+    app.logger.info("Starting background log streaming thread...")
+    
+    while live_streaming_active:
+        try:
+            # Fetch new logs
+            logs = fetch_new_logs(last_log_timestamp)
+            
+            if logs:
+                # Update timestamp for next fetch
+                last_log_timestamp = logs[0]['timestamp']
+                
+                # Broadcast to connected clients
+                for client_id, client_info in list(connected_clients.items()):
+                    if client_info.get('paused'):
+                        continue
+                    
+                    # Filter logs based on client preferences
+                    filtered_logs = [
+                        log for log in logs 
+                        if log_matches_filters(log, client_info['filters'])
+                    ]
+                    
+                    if filtered_logs:
+                        socketio.emit('new_logs', {
+                            'logs': filtered_logs,
+                            'count': len(filtered_logs)
+                        }, room=client_id)
+            
+            # Send metrics update every iteration
+            if connected_clients:
+                metrics = get_realtime_metrics()
+                socketio.emit('metrics_update', metrics)
+            
+            # Poll every second for real-time feel
+            time.sleep(1)
+            
+        except Exception as e:
+            app.logger.error(f"Error in background streaming: {e}")
+            time.sleep(5)  # Wait longer on error
+
+# Start background streaming thread when app starts
+streaming_thread = None
+
+def start_streaming_thread():
+    """Start the background streaming thread."""
+    global streaming_thread
+    if streaming_thread is None or not streaming_thread.is_alive():
+        streaming_thread = threading.Thread(target=background_log_streaming, daemon=True)
+        streaming_thread.start()
+        app.logger.info("Background streaming thread started")
+
+# Route for live logs page
+@app.route('/live')
+def live_logs_page():
+    """Render the live logs monitoring page."""
+    return render_template('live.html')
+
+# API endpoint for getting connected clients count
+@app.route('/api/realtime/clients')
+def get_connected_clients():
+    """Get count of connected WebSocket clients."""
+    return jsonify({
+        'connected_clients': len(connected_clients),
+        'clients': [
+            {
+                'id': cid[:8] + '...',
+                'connected_at': info['connected_at'].isoformat(),
+                'filters': info['filters'],
+                'paused': info['paused']
+            }
+            for cid, info in connected_clients.items()
+        ]
+    })
+
+# API endpoint for instant metrics
+@app.route('/api/realtime/metrics')
+def get_instant_metrics():
+    """Get current real-time metrics."""
+    return jsonify(get_realtime_metrics())
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Start background streaming
+    start_streaming_thread()
+    # Use socketio.run instead of app.run for WebSocket support
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
+

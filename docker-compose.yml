@@ -51,6 +51,8 @@ services:
     ports:
       - "5044:5044"
       - "9600:9600"
+      - "5050:5000"   # TCP streaming input
+      - "8080:8080"   # HTTP webhook input
     environment:
       # Logstash 7.x works better with lower memory
       - LS_JAVA_OPTS=-Xms256m -Xmx256m

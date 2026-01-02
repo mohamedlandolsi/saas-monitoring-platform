@@ -154,6 +154,17 @@
             gap: 0.5rem;
             margin-bottom: 1rem;
         }
+        .sortable {
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .sortable:hover {
+            background-color: #e9ecef;
+        }
+        .sort-icon {
+            font-size: 0.8rem;
+            margin-left: 0.3rem;
+        }
     </style>
 </head>
 <body>
@@ -380,12 +391,23 @@
                     <table class="table table-striped table-hover results-table" id="resultsTable">
                         <thead>
                             <tr>
-                                <th style="width: 180px;">Timestamp</th>
-                                <th style="width: 100px;">Level</th>
-                                <th style="width: 200px;">Endpoint</th>
-                                <th style="width: 100px;">Status</th>
-                                <th style="width: 120px;">Response Time</th>
+                                <th style="width: 180px; cursor: pointer;" class="sortable" data-sort="@timestamp" onclick="sortByColumn('@timestamp')">
+                                    Timestamp <i class="bi bi-arrow-down-up sort-icon" id="sort-icon-timestamp"></i>
+                                </th>
+                                <th style="width: 100px; cursor: pointer;" class="sortable" data-sort="level.keyword" onclick="sortByColumn('level.keyword')">
+                                    Level <i class="bi bi-arrow-down-up sort-icon" id="sort-icon-level"></i>
+                                </th>
+                                <th style="width: 180px; cursor: pointer;" class="sortable" data-sort="endpoint.keyword" onclick="sortByColumn('endpoint.keyword')">
+                                    Endpoint <i class="bi bi-arrow-down-up sort-icon" id="sort-icon-endpoint"></i>
+                                </th>
+                                <th style="width: 90px; cursor: pointer;" class="sortable" data-sort="status_code" onclick="sortByColumn('status_code')">
+                                    Status <i class="bi bi-arrow-down-up sort-icon" id="sort-icon-status"></i>
+                                </th>
+                                <th style="width: 120px; cursor: pointer;" class="sortable" data-sort="response_time_ms" onclick="sortByColumn('response_time_ms')">
+                                    Time (ms) <i class="bi bi-arrow-down-up sort-icon" id="sort-icon-time"></i>
+                                </th>
                                 <th>Message</th>
+                                <th style="width: 80px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="resultsTableBody">
@@ -460,6 +482,63 @@
         </div>
     </div>
 
+    <!-- Log Details Modal -->
+    <div class="modal fade" id="logDetailsModal" tabindex="-1" aria-labelledby="logDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logDetailsModalLabel">
+                        <i class="bi bi-file-text"></i> Log Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Timestamp</label>
+                            <p id="detailTimestamp" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Level</label>
+                            <p id="detailLevel">-</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Endpoint</label>
+                            <p id="detailEndpoint" class="form-control-plaintext"><code>-</code></p>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Status Code</label>
+                            <p id="detailStatus" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Response Time</label>
+                            <p id="detailResponseTime" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Server</label>
+                            <p id="detailServer" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Client IP</label>
+                            <p id="detailClientIp" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">User ID</label>
+                            <p id="detailUserId" class="form-control-plaintext">-</p>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Message</label>
+                            <div id="detailMessage" class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem;">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Logout function
@@ -488,6 +567,8 @@
         let currentPage = 1;
         let totalPages = 0;
         let currentQuery = {};
+        let currentSortBy = '@timestamp';
+        let currentSortOrder = 'desc';
 
         // DOM Elements
         const searchForm = document.getElementById('searchForm');
@@ -542,6 +623,8 @@
                     endpoint: formData.get('endpoint') || '',
                     status_code: formData.get('status_code') || '',
                     server: formData.get('server') || '',
+                    sort_by: currentSortBy,
+                    sort_order: currentSortOrder,
                     page: page,
                     per_page: 50
                 };
@@ -634,6 +717,11 @@
                         <td><span class="${statusClass}">${log.status_code || 'N/A'}</span></td>
                         <td>${responseTimeHtml}</td>
                         <td class="message-cell" title="${escapeHtml(log.message || '')}">${escapeHtml(message)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="showLogDetails(${currentResults.indexOf(log)})" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
                     `;
                     
                     resultsTableBody.appendChild(row);
@@ -1154,6 +1242,78 @@
                 btn.innerHTML = originalText;
             }
         });
+
+        // Sort by column - server-side sorting
+        function sortByColumn(field) {
+            // Toggle sort order if clicking same column
+            if (currentSortBy === field) {
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortBy = field;
+                currentSortOrder = 'desc'; // Default to descending for new column
+            }
+            
+            // Update sort icons
+            updateSortIcons();
+            
+            // Re-run search with new sort
+            currentPage = 1;
+            performSearch(1);
+        }
+
+        // Update sort icons in table headers
+        function updateSortIcons() {
+            // Reset all icons
+            document.querySelectorAll('.sort-icon').forEach(icon => {
+                icon.className = 'bi bi-arrow-down-up sort-icon text-muted';
+            });
+            
+            // Find the icon for current sort field
+            const iconMap = {
+                '@timestamp': 'sort-icon-timestamp',
+                'level.keyword': 'sort-icon-level',
+                'endpoint.keyword': 'sort-icon-endpoint',
+                'status_code': 'sort-icon-status',
+                'response_time_ms': 'sort-icon-time'
+            };
+            
+            const iconId = iconMap[currentSortBy];
+            if (iconId) {
+                const icon = document.getElementById(iconId);
+                if (icon) {
+                    if (currentSortOrder === 'asc') {
+                        icon.className = 'bi bi-arrow-up sort-icon text-primary';
+                    } else {
+                        icon.className = 'bi bi-arrow-down sort-icon text-primary';
+                    }
+                }
+            }
+        }
+
+        // Show log details modal
+        function showLogDetails(index) {
+            if (index < 0 || index >= currentResults.length) {
+                console.error('Invalid log index:', index);
+                return;
+            }
+            
+            const log = currentResults[index];
+            
+            // Populate modal fields
+            document.getElementById('detailTimestamp').textContent = formatTimestamp(log.timestamp);
+            document.getElementById('detailLevel').innerHTML = formatLevelBadge(log.level);
+            document.getElementById('detailEndpoint').innerHTML = `<code>${log.endpoint || 'N/A'}</code>`;
+            document.getElementById('detailStatus').innerHTML = `<span class="${getStatusClass(log.status_code)}">${log.status_code || 'N/A'}</span>`;
+            document.getElementById('detailResponseTime').innerHTML = formatResponseTime(log.response_time_ms);
+            document.getElementById('detailServer').textContent = log.server || 'N/A';
+            document.getElementById('detailClientIp').textContent = log.client_ip || 'N/A';
+            document.getElementById('detailUserId').textContent = log.user_id || 'N/A';
+            document.getElementById('detailMessage').textContent = log.message || 'No message';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+            modal.show();
+        }
 
         // Show notification helper
         function showNotification(message, type = 'info') {

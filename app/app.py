@@ -1107,6 +1107,17 @@ def search_logs():
         status_code = data.get('status_code', '')
         server = data.get('server', '').strip()
         
+        # Extract sorting parameters
+        sort_by = data.get('sort_by', '@timestamp').strip()
+        sort_order = data.get('sort_order', 'desc').lower()
+        
+        # Validate sort parameters
+        valid_sort_fields = ['@timestamp', 'level.keyword', 'status_code', 'response_time_ms', 'endpoint.keyword']
+        if sort_by not in valid_sort_fields:
+            sort_by = '@timestamp'
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
+        
         # Validate pagination parameters
         try:
             page = int(data.get('page', 1))
@@ -1229,7 +1240,7 @@ def search_logs():
         search_body = {
             'query': query,
             'sort': [
-                {'@timestamp': {'order': 'desc'}}
+                {sort_by: {'order': sort_order}}
             ],
             'from': (page - 1) * per_page,
             'size': per_page,

@@ -22,6 +22,7 @@
 \usepackage{tocloft}
 \usepackage{enumitem}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds}
 
@@ -32,7 +33,8 @@
     left=2.5cm,
     right=2.5cm,
     top=2.5cm,
-    bottom=2.5cm
+    bottom=2.5cm,
+    headheight=15pt
 }
 
 % ============================================================================
@@ -70,6 +72,21 @@
     rulecolor=\color{codeborder}
 }
 \lstset{style=codestyle}
+
+% Define JSON language for listings
+\lstdefinelanguage{json}{
+    basicstyle=\ttfamily\footnotesize,
+    string=[s]{"}{"}, 
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    literate=
+     *{:}{{{\color{secondarypurple}{:}}}}{1}
+      {,}{{{\color{gray}{,}}}}{1}
+      {\{}{{{\color{primaryblue}{\{}}}}{1}
+      {\}}{{{\color{primaryblue}{\}}}}}{1}
+      {[}{{{\color{primaryblue}{[}}}}{1}
+      {]}{{{\color{primaryblue}{]}}}}{1}
+}
 
 % ============================================================================
 % Headers and Footers

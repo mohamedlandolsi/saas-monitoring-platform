@@ -9,29 +9,29 @@ The Flask application serves as the central hub of the platform, providing both 
 
 \subsection{Application Structure}
 
-\begin{lstlisting}[language=bash, caption={Application Directory Structure}]
+\begin{verbatim}
 app/
-├── app.py              # Main application entry point
-├── Dockerfile          # Container configuration
-├── requirements.txt    # Python dependencies
-├── models/             # MongoDB data models
-│   ├── file.py         # File upload metadata
-│   ├── user.py         # User authentication
-│   ├── search_history.py # Query tracking
-│   └── saved_search.py # Saved searches
-├── utils/              # Utility modules
-│   ├── cache.py        # Redis caching
-│   ├── errors.py       # Error handling
-│   ├── performance.py  # Performance optimization
-│   ├── metrics.py      # Prometheus metrics
-│   └── structured_logger.py # JSON logging
-└── templates/          # HTML templates
-    ├── index.html      # Dashboard
-    ├── search.html     # Search interface
-    ├── upload.html     # File upload
-    ├── live.html       # Real-time logs
-    └── files.html      # File management
-\end{lstlisting}
+  app.py              # Main application entry point
+  Dockerfile          # Container configuration
+  requirements.txt    # Python dependencies
+  models/             # MongoDB data models
+    file.py           # File upload metadata
+    user.py           # User authentication
+    search_history.py # Query tracking
+    saved_search.py   # Saved searches
+  utils/              # Utility modules
+    cache.py          # Redis caching
+    errors.py         # Error handling
+    performance.py    # Performance optimization
+    metrics.py        # Prometheus metrics
+    structured_logger.py # JSON logging
+  templates/          # HTML templates
+    index.html        # Dashboard
+    search.html       # Search interface
+    upload.html       # File upload
+    live.html         # Real-time logs
+    files.html        # File management
+\end{verbatim}
 
 \subsection{Key Features}
 
@@ -130,7 +130,7 @@ Logstash accepts logs from multiple sources:
 
 \subsection{File Document Structure}
 
-\begin{lstlisting}[language=json, caption={File Document Schema}]
+\begin{lstlisting}[caption={File Document Schema}]
 {
   "_id": ObjectId,
   "filename": "logs_2024.json",

@@ -109,7 +109,7 @@ output {
 
 \subsection{Cluster Settings}
 
-\begin{lstlisting}[language=yaml, caption={Elasticsearch Environment Configuration}]
+\begin{lstlisting}[caption={Elasticsearch Environment Configuration}]
 environment:
   - discovery.type=single-node
   - xpack.security.enabled=false
@@ -120,7 +120,7 @@ environment:
 
 \subsection{Index Template}
 
-\begin{lstlisting}[language=json, caption={Elasticsearch Index Template}]
+\begin{lstlisting}[caption={Elasticsearch Index Template}]
 PUT _index_template/saas-logs-template
 {
   "index_patterns": ["saas-logs-*"],
@@ -155,7 +155,7 @@ PUT _index_template/saas-logs-template
 
 \subsection{Environment Settings}
 
-\begin{lstlisting}[language=yaml, caption={Kibana Configuration}]
+\begin{lstlisting}[caption={Kibana Configuration}]
 environment:
   - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
   - SERVER_NAME=kibana

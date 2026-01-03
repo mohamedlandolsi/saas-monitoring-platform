@@ -26,22 +26,22 @@ The SaaS Monitoring Platform is built on a microservices architecture using cont
 \node[box] (browser) {Browser/Client};
 
 % Presentation layer
-\node[box, below=of browser] (flask) {Flask Web App\\(Port 5000)};
-\node[box, right=2cm of flask] (socketio) {Socket.IO\\Real-time};
+\node[box, below=of browser] (flask) {Flask Web App};
+\node[box, right=2cm of flask] (socketio) {Socket.IO};
 
 % ELK Stack
-\node[box, below left=2cm and 1cm of flask] (logstash) {Logstash\\(Port 5044)};
-\node[box, below=of flask] (elasticsearch) {Elasticsearch\\(Port 9200)};
-\node[box, below right=2cm and 1cm of flask] (kibana) {Kibana\\(Port 5601)};
+\node[box, below left=2cm and 1cm of flask] (logstash) {Logstash};
+\node[box, below=of flask] (elasticsearch) {Elasticsearch};
+\node[box, below right=2cm and 1cm of flask] (kibana) {Kibana};
 
 % Data stores
-\node[db, below left=1.5cm and 0cm of logstash] (mongodb) {MongoDB\\(Port 27017)};
-\node[db, below right=1.5cm and 0cm of kibana] (redis) {Redis\\(Port 6379)};
+\node[db, below left=1.5cm and 0cm of logstash] (mongodb) {MongoDB};
+\node[db, below right=1.5cm and 0cm of kibana] (redis) {Redis};
 
 % Observability
-\node[box, below=of elasticsearch] (prometheus) {Prometheus\\(Port 9090)};
-\node[box, right=1.5cm of prometheus] (grafana) {Grafana\\(Port 3000)};
-\node[box, left=1.5cm of prometheus] (jaeger) {Jaeger\\(Port 16686)};
+\node[box, below=of elasticsearch] (prometheus) {Prometheus};
+\node[box, right=1.5cm of prometheus] (grafana) {Grafana};
+\node[box, left=1.5cm of prometheus] (jaeger) {Jaeger};
 
 % Connections
 \draw[arrow] (browser) -- (flask);

@@ -16,7 +16,7 @@ Elasticsearch requires significant memory (default 2GB heap), causing container 
     \item Used single-node deployment mode
 \end{itemize}
 
-\begin{lstlisting}[language=yaml]
+\begin{lstlisting}
 environment:
   - ES_JAVA_OPTS=-Xms256m -Xmx256m
   - discovery.type=single-node

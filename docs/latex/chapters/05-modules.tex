@@ -1,0 +1,156 @@
+% ============================================================================
+% Chapter 5: Developed Modules
+% ============================================================================
+\chapter{Developed Modules}
+
+\section{Module Overview}
+
+The platform is organized into functional modules, each addressing specific requirements from the project specification.
+
+\section{Module 1: Log File Management}
+
+\subsection{Description}
+Handles file upload, validation, and processing of CSV and JSON log files.
+
+\subsection{Features}
+\begin{itemize}
+    \item Drag-and-drop file upload interface
+    \item File type validation (CSV, JSON only)
+    \item File size limit: 100 MB
+    \item Upload progress bar
+    \item File preview before processing
+    \item Automatic Logstash ingestion
+\end{itemize}
+
+\subsection{Implementation}
+\begin{itemize}
+    \item \texttt{/upload} - Upload page route
+    \item \texttt{/api/upload} - REST endpoint for file upload
+    \item \texttt{models/file.py} - MongoDB metadata model
+\end{itemize}
+
+\section{Module 3: Web Interface}
+
+\subsection{Description}
+Responsive web interface for all platform functions.
+
+\subsection{Pages}
+\begin{description}
+    \item[Dashboard (index.html)] Statistics overview with KPIs and charts
+    \item[Search (search.html)] Advanced log search with filters
+    \item[Upload (upload.html)] File upload interface
+    \item[Files (files.html)] Uploaded files management
+    \item[Live (live.html)] Real-time log streaming
+\end{description}
+
+\subsection{Features}
+\begin{itemize}
+    \item Bootstrap 5 responsive design
+    \item Chart.js interactive visualizations
+    \item Server-side pagination (50 results/page)
+    \item CSV export functionality
+    \item Saved searches
+\end{itemize}
+
+\section{Module 4: MongoDB Integration}
+
+\subsection{Description}
+NoSQL storage for metadata, user data, and search history.
+
+\subsection{Collections}
+\begin{itemize}
+    \item \textbf{files:} Upload metadata and processing status
+    \item \textbf{users:} User accounts with bcrypt passwords
+    \item \textbf{search\_history:} Automatic query logging
+    \item \textbf{saved\_searches:} User-saved search configurations
+\end{itemize}
+
+\subsection{Features}
+\begin{itemize}
+    \item Connection pooling for performance
+    \item Error handling and reconnection
+    \item Health check integration
+\end{itemize}
+
+\section{Module 5: Docker Deployment}
+
+\subsection{Description}
+Containerized deployment with Docker Compose.
+
+\subsection{Services}
+\begin{enumerate}
+    \item Elasticsearch (search engine)
+    \item Logstash (log processing)
+    \item Kibana (visualization)
+    \item MongoDB (document store)
+    \item Redis (cache)
+    \item Webapp (Flask application)
+    \item Prometheus (metrics)
+    \item Grafana (dashboards)
+    \item Jaeger (tracing)
+\end{enumerate}
+
+\subsection{Features}
+\begin{itemize}
+    \item Health checks for all services
+    \item Resource limits (CPU/memory)
+    \item Persistent volumes
+    \item Network isolation
+\end{itemize}
+
+\section{Module H: Real-Time Visualization}
+
+\subsection{Description}
+WebSocket-based real-time log streaming and metrics.
+
+\subsection{Features}
+\begin{itemize}
+    \item Socket.IO WebSocket connection
+    \item Live log tail (\texttt{tail -f} style)
+    \item Real-time filters (level, endpoint)
+    \item Pause/Resume stream
+    \item Auto-scroll toggle
+    \item Color-coded log levels
+    \item Desktop notifications
+    \item Alert sounds
+\end{itemize}
+
+\subsection{Metrics}
+\begin{itemize}
+    \item Logs per second
+    \item Errors per minute
+    \item Active requests
+    \item Connected users
+\end{itemize}
+
+\section{Module L: Observability}
+
+\subsection{Description}
+Comprehensive monitoring with Prometheus, Grafana, and Jaeger.
+
+\subsection{Prometheus Metrics}
+\begin{itemize}
+    \item HTTP request counts
+    \item Request latency (P50, P90, P99)
+    \item Response sizes
+    \item Active connections
+    \item System CPU/memory
+    \item Service health status
+\end{itemize}
+
+\subsection{Health Endpoint}
+Enhanced \texttt{/api/health} returns:
+\begin{itemize}
+    \item Per-service status (healthy/degraded/down)
+    \item Response times for each check
+    \item System metrics (CPU, memory, disk)
+    \item Detailed service information
+\end{itemize}
+
+\subsection{Alerting Rules}
+\begin{itemize}
+    \item High CPU/Memory ($>$ 80\%)
+    \item Service down
+    \item High latency (P95 $>$ 2s)
+    \item High error rate ($>$ 5\%)
+\end{itemize}

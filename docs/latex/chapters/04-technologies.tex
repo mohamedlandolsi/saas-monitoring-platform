@@ -1,0 +1,140 @@
+% ============================================================================
+% Chapter 4: Technologies and Specifications
+% ============================================================================
+\chapter{Technical Specifications}
+
+\section{Technology Stack Overview}
+
+The SaaS Monitoring Platform utilizes modern, production-ready technologies selected for their performance, reliability, and community support.
+
+\section{Backend Technologies}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+Python & 3.11 & Latest stable version with performance improvements \\
+Flask & 3.0.0 & Lightweight, flexible web framework \\
+Flask-SocketIO & 5.3.6 & WebSocket support for real-time features \\
+Flask-CORS & 4.0.0 & Cross-origin request handling \\
+Flask-Compress & 1.14 & Response compression \\
+Gevent & 23.9.1 & Async networking for WebSocket \\
+\bottomrule
+\end{tabular}
+\caption{Backend Framework Stack}
+\end{table}
+
+\section{ELK Stack}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Component} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+Elasticsearch & 8.11.0 & Latest stable with improved performance \\
+Logstash & 7.17.0 & Memory-efficient version for pipelines \\
+Kibana & 8.11.0 & Native Elasticsearch 8.x compatibility \\
+\bottomrule
+\end{tabular}
+\caption{ELK Stack Versions}
+\end{table}
+
+\section{Database Technologies}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+MongoDB & 7 & Document-oriented storage for flexible schemas \\
+Redis & 7-alpine & High-performance caching and pub/sub \\
+PyMongo & 4.6.0 & Official Python driver for MongoDB \\
+redis-py & 5.0.1 & Python Redis client \\
+\bottomrule
+\end{tabular}
+\caption{Database Stack}
+\end{table}
+
+\section{Observability Stack}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+Prometheus & 2.48.0 & Industry-standard metrics collection \\
+Grafana & 10.2.2 & Advanced visualization and alerting \\
+Jaeger & 1.52 & Distributed tracing for microservices \\
+prometheus-client & 0.19.0 & Python Prometheus instrumentation \\
+OpenTelemetry & 1.22.0 & Vendor-neutral observability \\
+\bottomrule
+\end{tabular}
+\caption{Observability Stack}
+\end{table}
+
+\section{Frontend Technologies}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+Bootstrap & 5.3.0 & Responsive UI components \\
+Chart.js & 4.4.0 & Interactive charts and graphs \\
+Socket.IO Client & 4.6.0 & WebSocket communication \\
+Bootstrap Icons & 1.11.0 & Consistent iconography \\
+\bottomrule
+\end{tabular}
+\caption{Frontend Stack}
+\end{table}
+
+\section{DevOps and Deployment}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Justification} \\
+\midrule
+Docker & 20.10+ & Container runtime \\
+Docker Compose & 2.0+ & Multi-container orchestration \\
+Git & 2.x & Version control \\
+\bottomrule
+\end{tabular}
+\caption{DevOps Tools}
+\end{table}
+
+\section{Security Considerations}
+
+\begin{itemize}
+    \item \textbf{bcrypt 4.1.1:} Password hashing with salt
+    \item \textbf{python-dotenv 1.0.0:} Environment variable management
+    \item \textbf{Session management:} Redis-backed secure sessions
+    \item \textbf{CORS:} Configured for allowed origins only
+\end{itemize}
+
+\section{System Requirements}
+
+\subsection{Minimum Requirements}
+
+\begin{itemize}
+    \item CPU: 4 cores
+    \item RAM: 8 GB
+    \item Disk: 20 GB SSD
+    \item Docker: 20.10+
+\end{itemize}
+
+\subsection{Recommended Requirements}
+
+\begin{itemize}
+    \item CPU: 8 cores
+    \item RAM: 16 GB
+    \item Disk: 50 GB SSD
+    \item Docker: Latest stable
+\end{itemize}

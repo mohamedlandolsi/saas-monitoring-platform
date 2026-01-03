@@ -1,0 +1,102 @@
+% ============================================================================
+% Chapter 12: Challenges and Solutions
+% ============================================================================
+\chapter{Challenges Encountered and Solutions}
+
+\section{Elasticsearch Memory Constraints}
+
+\subsection{Challenge}
+Elasticsearch requires significant memory (default 2GB heap), causing container crashes on systems with limited RAM.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Reduced heap size to 256MB for development
+    \item Added resource limits in Docker Compose
+    \item Disabled security features to reduce overhead
+    \item Used single-node deployment mode
+\end{itemize}
+
+\begin{lstlisting}[language=yaml]
+environment:
+  - ES_JAVA_OPTS=-Xms256m -Xmx256m
+  - discovery.type=single-node
+deploy:
+  resources:
+    limits:
+      memory: 512M
+\end{lstlisting}
+
+\section{Logstash Pipeline Complexity}
+
+\subsection{Challenge}
+Handling multiple input formats (CSV, JSON) with different field mappings in a single pipeline.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Used tags to identify input sources
+    \item Conditional filters based on tags
+    \item Unified field naming across formats
+    \item Added robust date parsing with multiple patterns
+\end{itemize}
+
+\section{Real-Time WebSocket Scalability}
+
+\subsection{Challenge}
+Flask's default server doesn't support WebSocket well, and scaling across multiple workers was problematic.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Implemented Flask-SocketIO with Redis message queue
+    \item Used Gevent for async networking
+    \item Added connection management with client tracking
+    \item Implemented circular buffer for log history
+\end{itemize}
+
+\section{Kibana Startup Dependencies}
+
+\subsection{Challenge}
+Kibana would fail to start if Elasticsearch wasn't fully ready.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Added health checks with \texttt{service\_healthy} condition
+    \item Increased startup timeout for Elasticsearch
+    \item Extended health check intervals
+\end{itemize}
+
+\section{Cross-Origin Resource Sharing}
+
+\subsection{Challenge}
+Browser security blocked API requests from different origins during development.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Configured Flask-CORS with appropriate origins
+    \item Added proper CORS headers for WebSocket
+    \item Documented production CORS configuration
+\end{itemize}
+
+\section{Performance Optimization}
+
+\subsection{Challenge}
+Slow response times for complex Elasticsearch queries and dashboard statistics.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Implemented Redis caching for statistics
+    \item Added query result caching with TTL
+    \item Optimized Elasticsearch queries with source filtering
+    \item Used pagination to limit result sets
+\end{itemize}
+
+\section{Docker Networking Issues}
+
+\subsection{Challenge}
+Services couldn't communicate using container names initially.
+
+\subsection{Solution}
+\begin{itemize}
+    \item Created dedicated Docker network
+    \item Used service names as hostnames
+    \item Verified DNS resolution within containers
+\end{itemize}

@@ -1,0 +1,206 @@
+% ============================================================================
+% SaaS Monitoring Platform - Technical Documentation
+% ============================================================================
+\documentclass[12pt,a4paper]{report}
+
+% ============================================================================
+% Packages
+% ============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds}
+
+% ============================================================================
+% Page Layout
+% ============================================================================
+\geometry{
+    left=2.5cm,
+    right=2.5cm,
+    top=2.5cm,
+    bottom=2.5cm
+}
+
+% ============================================================================
+% Colors
+% ============================================================================
+\definecolor{primaryblue}{RGB}{102, 126, 234}
+\definecolor{secondarypurple}{RGB}{118, 75, 162}
+\definecolor{codebackground}{RGB}{248, 249, 250}
+\definecolor{codeborder}{RGB}{206, 212, 218}
+\definecolor{successgreen}{RGB}{40, 167, 69}
+\definecolor{warningyellow}{RGB}{255, 193, 7}
+\definecolor{dangerred}{RGB}{220, 53, 69}
+
+% ============================================================================
+% Code Listings Style
+% ============================================================================
+\lstdefinestyle{codestyle}{
+    backgroundcolor=\color{codebackground},
+    commentstyle=\color{gray},
+    keywordstyle=\color{primaryblue}\bfseries,
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{secondarypurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{codeborder}
+}
+\lstset{style=codestyle}
+
+% ============================================================================
+% Headers and Footers
+% ============================================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{SaaS Monitoring Platform}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% ============================================================================
+% Hyperref Configuration
+% ============================================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primaryblue,
+    filecolor=primaryblue,
+    urlcolor=primaryblue,
+    citecolor=primaryblue,
+    pdftitle={SaaS Monitoring Platform - Technical Documentation},
+    pdfauthor={Development Team},
+    pdfsubject={Technical Documentation}
+}
+
+% ============================================================================
+% Document Information
+% ============================================================================
+\title{
+    \vspace{-2cm}
+    \includegraphics[width=0.3\textwidth]{figures/logo.png}\\[1cm]
+    {\Huge\bfseries SaaS Monitoring Platform}\\[0.5cm]
+    {\LARGE Technical Documentation}\\[1cm]
+    {\large Log Analysis and Monitoring with ELK Stack, NoSQL, and Web Interface}
+}
+\author{
+    \textbf{Development Team}\\[0.5cm]
+    IT Business School
+}
+\date{\today}
+
+% ============================================================================
+% Begin Document
+% ============================================================================
+\begin{document}
+
+% ============================================================================
+% Cover Page
+% ============================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    % Logo placeholder
+    \begin{tikzpicture}
+        \node[draw=primaryblue, line width=2pt, rounded corners=10pt, 
+              minimum width=4cm, minimum height=2cm, 
+              fill=primaryblue!10] (logo) {
+            \textcolor{primaryblue}{\Huge\bfseries SaaS Monitor}
+        };
+    \end{tikzpicture}
+    
+    \vspace{2cm}
+    
+    {\Huge\bfseries SaaS Monitoring Platform}\\[0.5cm]
+    {\Large\textcolor{gray}{Log Analysis and Monitoring Application}}\\[0.3cm]
+    {\large with ELK Stack, NoSQL, and Web Interface}
+    
+    \vspace{2cm}
+    
+    \begin{tikzpicture}
+        \draw[primaryblue, line width=1pt] (0,0) -- (10,0);
+    \end{tikzpicture}
+    
+    \vspace{1cm}
+    
+    {\LARGE\bfseries Technical Documentation}
+    
+    \vspace{2cm}
+    
+    \begin{tabular}{ll}
+        \textbf{Version:} & 1.0 \\[0.3cm]
+        \textbf{Date:} & \today \\[0.3cm]
+        \textbf{Institution:} & IT Business School \\[0.3cm]
+        \textbf{Scenario:} & D - SaaS Web Application \\
+    \end{tabular}
+    
+    \vfill
+    
+    \textcolor{gray}{\small BigData Frameworks Project - October 2025}
+    
+\end{titlepage}
+
+% ============================================================================
+% Table of Contents
+% ============================================================================
+\tableofcontents
+\newpage
+
+% ============================================================================
+% PART 1: Overview and Architecture
+% ============================================================================
+\part{Overview and Architecture}
+
+\input{chapters/01-introduction}
+\input{chapters/02-global-architecture}
+\input{chapters/03-detailed-architecture}
+
+% ============================================================================
+% PART 2: Technical Specifications
+% ============================================================================
+\part{Technical Specifications}
+
+\input{chapters/04-technologies}
+\input{chapters/05-modules}
+\input{chapters/06-code-excerpts}
+\input{chapters/07-elk-configuration}
+\input{chapters/08-data-models}
+
+% ============================================================================
+% PART 3: Guides and Appendices
+% ============================================================================
+\part{Guides and Validation}
+
+\input{chapters/09-installation-guide}
+\input{chapters/10-user-guide}
+\input{chapters/11-testing-validation}
+\input{chapters/12-challenges-solutions}
+\input{chapters/13-future-improvements}
+\input{chapters/14-conclusion}
+\input{chapters/15-appendices}
+
+\end{document}

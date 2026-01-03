@@ -1,0 +1,93 @@
+% ============================================================================
+% Chapter 1: Introduction
+% ============================================================================
+\chapter{Introduction}
+
+\section{Context}
+
+In the current landscape of distributed information systems, log production has become exponential. These logs originate from multiple sources: web applications, microservices, databases, IoT systems, servers, APIs, and more. This massive amount of data constitutes a goldmine of crucial information for several strategic objectives:
+
+\begin{itemize}
+    \item \textbf{Incident Detection and Diagnosis:} Quickly identifying anomalies and system failures
+    \item \textbf{Performance Analysis:} Optimizing response times and user experience
+    \item \textbf{Security and Compliance:} Detecting intrusions and respecting regulations (GDPR, PCI-DSS)
+    \item \textbf{Business Intelligence:} Making decisions based on user behavior analysis
+\end{itemize}
+
+However, manual management of millions of log lines quickly becomes impossible. It is therefore necessary to implement an automated infrastructure capable of collecting, indexing, searching, and visualizing this data in real-time.
+
+\section{Problem Statement}
+
+Modern enterprises face the following challenges:
+
+\begin{enumerate}
+    \item Logs are dispersed across different servers and applications
+    \item The lack of centralization makes problem diagnosis long and complex
+    \item Technical teams waste time manually searching through log files
+    \item There is no automatic alerting system for critical events
+    \item Visualization of trends and patterns is non-existent
+\end{enumerate}
+
+\section{Project Objectives}
+
+This project aims to design, develop, and deploy a complete log monitoring and analysis platform that addresses enterprise needs. The platform must:
+
+\begin{enumerate}
+    \item \textbf{Centralize} log collection from different sources
+    \item \textbf{Intelligently index} data for ultra-fast search capabilities
+    \item \textbf{Provide relevant visualizations} to facilitate analysis
+    \item \textbf{Offer an intuitive web interface} for technical and business teams
+    \item \textbf{Be easily deployable and scalable} through containerization
+\end{enumerate}
+
+\section{Chosen Scenario: SaaS Web Application}
+
+For this project, we selected \textbf{Scenario D: SaaS Web Application}. This scenario involves developing a monitoring platform for a Software as a Service (SaaS) application used by thousands of client companies.
+
+\subsection{Types of Logs Processed}
+
+\begin{itemize}
+    \item \textbf{Web Server Logs:} Apache/Nginx access and error logs
+    \item \textbf{Application Logs:} Flask exceptions, warnings, and debug messages
+    \item \textbf{Database Logs:} Slow queries, deadlocks, and errors
+    \item \textbf{Performance Logs:} Response times, memory/CPU consumption
+    \item \textbf{API Logs:} Endpoints called, parameters, response codes
+\end{itemize}
+
+\subsection{Key Performance Indicators (KPIs)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{KPI} & \textbf{Description} \\
+\midrule
+Error Rate by Service & Percentage of failed requests per service \\
+Average Response Time & Mean API response latency \\
+Slowest Endpoints & Top endpoints by response time \\
+Errors per Hour & Error frequency tracking \\
+Active Users & Monthly Active Users (MAU) \\
+\bottomrule
+\end{tabular}
+\caption{Key Performance Indicators for SaaS Monitoring}
+\end{table}
+
+\subsection{Priority Use Cases}
+
+\begin{enumerate}
+    \item Alert technical teams in case of abnormal error spikes
+    \item Identify slow SQL queries to optimize the database
+    \item Track API usage to anticipate scaling needs
+    \item Generate SLA compliance reports for clients
+    \item Provide real-time dashboards for operations teams
+\end{enumerate}
+
+\section{Document Structure}
+
+This technical documentation is organized into three main parts:
+
+\begin{description}
+    \item[Part 1: Overview and Architecture] Presents the global system architecture and detailed component descriptions
+    \item[Part 2: Technical Specifications] Details the technologies, modules, configurations, and data models
+    \item[Part 3: Guides and Validation] Provides installation, user guides, testing results, and future perspectives
+\end{description}

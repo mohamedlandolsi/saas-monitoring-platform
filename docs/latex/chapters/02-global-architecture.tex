@@ -1,0 +1,147 @@
+% ============================================================================
+% Chapter 2: Global Architecture
+% ============================================================================
+\chapter{Global Architecture}
+
+\section{System Overview}
+
+The SaaS Monitoring Platform is built on a microservices architecture using containerization for easy deployment and scalability. The system integrates the ELK Stack (Elasticsearch, Logstash, Kibana) with a Flask web application, MongoDB for metadata storage, and Redis for caching and real-time messaging.
+
+\section{Architecture Diagram}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    box/.style={rectangle, draw=primaryblue, fill=primaryblue!10, 
+                minimum width=2.5cm, minimum height=1cm, 
+                text centered, rounded corners=5pt, font=\small},
+    db/.style={cylinder, draw=secondarypurple, fill=secondarypurple!10,
+               shape aspect=0.5, minimum width=2cm, minimum height=1.2cm,
+               text centered, font=\small},
+    arrow/.style={->, >=stealth, thick, primaryblue}
+]
+
+% User layer
+\node[box] (browser) {Browser/Client};
+
+% Presentation layer
+\node[box, below=of browser] (flask) {Flask Web App\\(Port 5000)};
+\node[box, right=2cm of flask] (socketio) {Socket.IO\\Real-time};
+
+% ELK Stack
+\node[box, below left=2cm and 1cm of flask] (logstash) {Logstash\\(Port 5044)};
+\node[box, below=of flask] (elasticsearch) {Elasticsearch\\(Port 9200)};
+\node[box, below right=2cm and 1cm of flask] (kibana) {Kibana\\(Port 5601)};
+
+% Data stores
+\node[db, below left=1.5cm and 0cm of logstash] (mongodb) {MongoDB\\(Port 27017)};
+\node[db, below right=1.5cm and 0cm of kibana] (redis) {Redis\\(Port 6379)};
+
+% Observability
+\node[box, below=of elasticsearch] (prometheus) {Prometheus\\(Port 9090)};
+\node[box, right=1.5cm of prometheus] (grafana) {Grafana\\(Port 3000)};
+\node[box, left=1.5cm of prometheus] (jaeger) {Jaeger\\(Port 16686)};
+
+% Connections
+\draw[arrow] (browser) -- (flask);
+\draw[arrow] (browser) -| (socketio);
+\draw[arrow] (flask) -- (elasticsearch);
+\draw[arrow] (flask) -| (mongodb);
+\draw[arrow] (flask) -| (redis);
+\draw[arrow] (logstash) -- (elasticsearch);
+\draw[arrow] (kibana) -- (elasticsearch);
+\draw[arrow] (prometheus) -- (flask);
+\draw[arrow] (grafana) -- (prometheus);
+
+\end{tikzpicture}
+\caption{Global System Architecture}
+\end{figure}
+
+\section{Component Overview}
+
+\subsection{Frontend Layer}
+\begin{itemize}
+    \item \textbf{Web Browser:} User interface access point
+    \item \textbf{Bootstrap 5:} Responsive UI framework
+    \item \textbf{Chart.js:} Interactive data visualizations
+    \item \textbf{Socket.IO Client:} Real-time WebSocket connections
+\end{itemize}
+
+\subsection{Application Layer}
+\begin{itemize}
+    \item \textbf{Flask 3.0:} Python web framework serving the API and UI
+    \item \textbf{Flask-SocketIO:} WebSocket support for live streaming
+    \item \textbf{Flask-CORS:} Cross-origin resource sharing
+    \item \textbf{Flask-Compress:} Response compression (gzip)
+\end{itemize}
+
+\subsection{Data Processing Layer (ELK Stack)}
+\begin{itemize}
+    \item \textbf{Elasticsearch 8.11:} Distributed search and analytics engine
+    \item \textbf{Logstash 7.17:} Data processing pipeline
+    \item \textbf{Kibana 8.11:} Data visualization platform
+\end{itemize}
+
+\subsection{Data Storage Layer}
+\begin{itemize}
+    \item \textbf{MongoDB 7:} Document database for metadata and user data
+    \item \textbf{Redis 7:} In-memory cache and message queue
+\end{itemize}
+
+\subsection{Observability Layer}
+\begin{itemize}
+    \item \textbf{Prometheus:} Metrics collection and alerting
+    \item \textbf{Grafana:} Metrics visualization dashboards
+    \item \textbf{Jaeger:} Distributed tracing
+\end{itemize}
+
+\section{Data Flow}
+
+\subsection{Log Ingestion Flow}
+\begin{enumerate}
+    \item Logs are uploaded via the web interface or streaming endpoints
+    \item Logstash receives and processes logs (parsing, enrichment)
+    \item Processed logs are indexed in Elasticsearch
+    \item Metadata is stored in MongoDB
+    \item Real-time updates are pushed via WebSocket
+\end{enumerate}
+
+\subsection{Search and Analysis Flow}
+\begin{enumerate}
+    \item User submits search query through web interface
+    \item Flask API translates query to Elasticsearch DSL
+    \item Elasticsearch returns matching documents
+    \item Results are formatted and cached in Redis
+    \item Response is sent to client with visualizations
+\end{enumerate}
+
+\section{Network Architecture}
+
+All services communicate through a Docker bridge network called \texttt{elk}. This provides:
+
+\begin{itemize}
+    \item \textbf{Service Discovery:} Containers can reference each other by name
+    \item \textbf{Isolation:} Services are isolated from external networks
+    \item \textbf{Security:} Only necessary ports are exposed to the host
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Service} & \textbf{Internal Port} & \textbf{External Port} & \textbf{Purpose} \\
+\midrule
+webapp & 5000 & 5000 & Web interface and API \\
+elasticsearch & 9200, 9300 & 9200, 9300 & Search engine \\
+logstash & 5044, 9600 & 5044, 9600 & Log processing \\
+kibana & 5601 & 5601 & Visualization \\
+mongodb & 27017 & 27017 & Document storage \\
+redis & 6379 & 6379 & Cache \\
+prometheus & 9090 & 9090 & Metrics \\
+grafana & 3000 & 3000 & Dashboards \\
+jaeger & 16686 & 16686 & Tracing UI \\
+\bottomrule
+\end{tabular}
+\caption{Service Port Mapping}
+\end{table}

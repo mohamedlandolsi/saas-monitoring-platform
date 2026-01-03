@@ -1,0 +1,200 @@
+% ============================================================================
+% Chapter 8: Data Models
+% ============================================================================
+\chapter{Data Models}
+
+\section{MongoDB Collections}
+
+\subsection{Files Collection}
+
+Stores metadata for uploaded log files.
+
+\begin{lstlisting}[language=json, caption={File Document Schema}]
+{
+  "_id": ObjectId("507f1f77bcf86cd799439011"),
+  "filename": "processed_logs_1704067200.json",
+  "original_filename": "server_logs.json",
+  "file_type": "json",
+  "file_size": 1048576,
+  "status": "processed",
+  "uploaded_at": ISODate("2024-01-01T10:00:00Z"),
+  "processed_at": ISODate("2024-01-01T10:05:00Z"),
+  "records_count": 10000,
+  "user_id": "user_abc123",
+  "error_message": null
+}
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\_id & ObjectId & Unique identifier \\
+filename & String & Processed filename \\
+original\_filename & String & User's original filename \\
+file\_type & String & csv or json \\
+file\_size & Integer & Size in bytes \\
+status & String & pending/processing/processed/error \\
+uploaded\_at & Date & Upload timestamp \\
+processed\_at & Date & Processing completion \\
+records\_count & Integer & Number of log entries \\
+user\_id & String & Uploader's user ID \\
+\bottomrule
+\end{tabular}
+\caption{Files Collection Schema}
+\end{table}
+
+\subsection{Users Collection}
+
+Stores user authentication and profile data.
+
+\begin{lstlisting}[language=json, caption={User Document Schema}]
+{
+  "_id": ObjectId("507f1f77bcf86cd799439012"),
+  "username": "admin",
+  "email": "admin@example.com",
+  "password_hash": "$2b$12$...",
+  "created_at": ISODate("2024-01-01T00:00:00Z"),
+  "last_login": ISODate("2024-01-15T08:30:00Z"),
+  "is_active": true,
+  "role": "admin"
+}
+\end{lstlisting}
+
+\subsection{Search History Collection}
+
+Automatically logs all search queries.
+
+\begin{lstlisting}[language=json, caption={Search History Document Schema}]
+{
+  "_id": ObjectId("507f1f77bcf86cd799439013"),
+  "query": "level:ERROR AND endpoint:/api/users",
+  "filters": {
+    "level": "ERROR",
+    "time_range": "last_24h"
+  },
+  "results_count": 156,
+  "execution_time_ms": 45.2,
+  "timestamp": ISODate("2024-01-15T10:30:00Z"),
+  "user_id": "user_abc123"
+}
+\end{lstlisting}
+
+\subsection{Saved Searches Collection}
+
+Stores user-configured saved searches.
+
+\begin{lstlisting}[language=json, caption={Saved Search Document Schema}]
+{
+  "_id": ObjectId("507f1f77bcf86cd799439014"),
+  "name": "Production Errors",
+  "description": "All errors from production servers",
+  "query": "level:ERROR",
+  "filters": {
+    "server": "prod-*",
+    "level": "ERROR"
+  },
+  "user_id": "user_abc123",
+  "created_at": ISODate("2024-01-10T14:00:00Z"),
+  "is_public": false
+}
+\end{lstlisting}
+
+\section{Redis Data Structures}
+
+\subsection{Cache Keys}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Key Pattern} & \textbf{Type} & \textbf{TTL} \\
+\midrule
+cache:stats:* & String (JSON) & 60s \\
+cache:search:* & String (JSON) & 300s \\
+session:* & Hash & 3600s \\
+metrics:api:* & Sorted Set & 86400s \\
+queue:logs & List & - \\
+\bottomrule
+\end{tabular}
+\caption{Redis Key Patterns}
+\end{table}
+
+\subsection{Cache Strategy}
+
+\begin{lstlisting}[language=Python, caption={Redis Caching Pattern}]
+def cache_result(timeout=300, key_prefix="cache"):
+    """Decorator for caching function results."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            cache_key = f"{key_prefix}:{hash(args)}"
+            
+            # Try to get from cache
+            cached = redis_client.get(cache_key)
+            if cached:
+                return json.loads(cached)
+            
+            # Execute and cache result
+            result = f(*args, **kwargs)
+            redis_client.setex(
+                cache_key, 
+                timeout, 
+                json.dumps(result)
+            )
+            return result
+        return wrapper
+    return decorator
+\end{lstlisting}
+
+\section{Elasticsearch Index Structure}
+
+\subsection{Document Example}
+
+\begin{lstlisting}[language=json, caption={Elasticsearch Log Document}]
+{
+  "_index": "saas-logs-2024.01.15",
+  "_id": "abc123",
+  "_source": {
+    "@timestamp": "2024-01-15T10:30:45.123Z",
+    "level": "ERROR",
+    "endpoint": "/api/users/123",
+    "status_code": 500,
+    "response_time_ms": 1250.5,
+    "client_ip": "192.168.1.100",
+    "server": "prod-web-01",
+    "message": "Database connection timeout",
+    "tags": ["stream", "tcp"]
+  }
+}
+\end{lstlisting}
+
+\subsection{Aggregation Examples}
+
+\begin{lstlisting}[language=json, caption={Error Count by Level Aggregation}]
+GET saas-logs-*/_search
+{
+  "size": 0,
+  "aggs": {
+    "errors_by_level": {
+      "terms": {
+        "field": "level.keyword",
+        "size": 10
+      }
+    },
+    "avg_response_time": {
+      "avg": {
+        "field": "response_time_ms"
+      }
+    },
+    "errors_over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "1h"
+      }
+    }
+  }
+}
+\end{lstlisting}

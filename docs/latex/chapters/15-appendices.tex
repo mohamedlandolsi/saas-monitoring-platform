@@ -1,0 +1,135 @@
+% ============================================================================
+% Chapter 15: Appendices
+% ============================================================================
+\chapter{Appendices}
+
+\section{API Reference}
+
+\subsection{Health and Status}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\midrule
+/api/health & GET & Service health status \\
+/api/stats & GET & Log statistics \\
+/metrics & GET & Prometheus metrics \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Log Operations}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\midrule
+/api/logs & GET & Query logs with pagination \\
+/api/search & GET & Search logs with filters \\
+/api/upload & POST & Upload log file \\
+/api/logs/\{id\} & GET & Get log by ID \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{File Management}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\midrule
+/api/files & GET & List uploaded files \\
+/api/files/\{id\} & GET & Get file details \\
+/api/files/\{id\} & DELETE & Delete file \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Environment Variables Reference}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llp{5cm}}
+\toprule
+\textbf{Variable} & \textbf{Default} & \textbf{Description} \\
+\midrule
+FLASK\_ENV & development & Environment mode \\
+SECRET\_KEY & dev-secret & Session secret \\
+ELASTICSEARCH\_HOST & elasticsearch:9200 & ES connection \\
+MONGODB\_URI & mongodb://mongodb:27017 & MongoDB connection \\
+REDIS\_HOST & redis & Redis hostname \\
+REDIS\_PORT & 6379 & Redis port \\
+\bottomrule
+\end{tabular}
+\caption{Environment Variables}
+\end{table}
+
+\section{Docker Commands Reference}
+
+\begin{lstlisting}[language=bash, caption={Common Docker Commands}]
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs -f webapp
+
+# Restart a service
+docker compose restart elasticsearch
+
+# Stop all services
+docker compose down
+
+# Remove volumes (data reset)
+docker compose down -v
+
+# Rebuild a service
+docker compose build webapp --no-cache
+\end{lstlisting}
+
+\section{Elasticsearch Query Examples}
+
+\begin{lstlisting}[language=json, caption={Search Errors in Last Hour}]
+GET saas-logs-*/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "level.keyword": "ERROR" } }
+      ],
+      "filter": [
+        { "range": { "@timestamp": { "gte": "now-1h" } } }
+      ]
+    }
+  }
+}
+\end{lstlisting}
+
+\section{Glossary}
+
+\begin{description}
+    \item[ELK Stack] Elasticsearch, Logstash, Kibana - open-source log management
+    \item[SaaS] Software as a Service - cloud-hosted application model
+    \item[API] Application Programming Interface
+    \item[WebSocket] Protocol for real-time bidirectional communication
+    \item[KPI] Key Performance Indicator
+    \item[MTTR] Mean Time To Resolution
+    \item[MTTD] Mean Time To Detection
+\end{description}
+
+\section{References}
+
+\begin{enumerate}
+    \item Elasticsearch Documentation: \url{https://www.elastic.co/guide/}
+    \item Flask Documentation: \url{https://flask.palletsprojects.com/}
+    \item Docker Documentation: \url{https://docs.docker.com/}
+    \item Prometheus Documentation: \url{https://prometheus.io/docs/}
+    \item Grafana Documentation: \url{https://grafana.com/docs/}
+    \item MongoDB Documentation: \url{https://docs.mongodb.com/}
+    \item Redis Documentation: \url{https://redis.io/documentation}
+\end{enumerate}

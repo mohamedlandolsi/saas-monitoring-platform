@@ -1,0 +1,175 @@
+% ============================================================================
+% Chapter 7: ELK Configuration
+% ============================================================================
+\chapter{ELK Stack Configuration}
+
+\section{Logstash Pipeline Configuration}
+
+The Logstash pipeline is configured to handle multiple input sources and process logs for Elasticsearch indexing.
+
+\subsection{Input Configuration}
+
+\begin{lstlisting}[caption={Logstash Input Configuration (logstash.conf)}]
+input {
+  # Streaming Inputs
+  tcp {
+    port => 5000
+    codec => json_lines
+    tags => ["stream", "tcp"]
+  }
+  
+  http {
+    port => 8080
+    codec => json
+    tags => ["stream", "webhook"]
+  }
+  
+  redis {
+    host => "redis"
+    port => 6379
+    data_type => "channel"
+    key => "logs"
+    codec => json
+    tags => ["stream", "redis"]
+  }
+
+  # File Inputs
+  file {
+    path => "/data/uploads/*.csv"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+    tags => ["csv"]
+  }
+
+  file {
+    path => "/data/uploads/*.json"
+    start_position => "beginning"
+    codec => "json"
+    tags => ["json"]
+  }
+}
+\end{lstlisting}
+
+\subsection{Filter Configuration}
+
+\begin{lstlisting}[caption={Logstash Filter Configuration}]
+filter {
+  # CSV Processing
+  if "csv" in [tags] {
+    csv {
+      separator => ","
+      columns => ["timestamp", "level", "endpoint", 
+                  "status_code", "response_time_ms", 
+                  "client_ip", "server", "message"]
+      skip_header => true
+    }
+  }
+
+  # Date Parsing
+  date {
+    match => ["timestamp", "ISO8601", 
+              "yyyy-MM-dd HH:mm:ss", 
+              "dd/MMM/yyyy:HH:mm:ss Z"]
+    target => "@timestamp"
+    remove_field => ["timestamp"]
+  }
+
+  # Type Conversions
+  mutate {
+    convert => {
+      "status_code" => "integer"
+      "response_time_ms" => "float"
+    }
+    remove_field => ["host", "path", "@version"]
+  }
+
+  # Log Level Normalization  
+  mutate {
+    uppercase => ["level"]
+  }
+}
+\end{lstlisting}
+
+\subsection{Output Configuration}
+
+\begin{lstlisting}[caption={Logstash Output Configuration}]
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "saas-logs-%{+YYYY.MM.dd}"
+    action => "index"
+  }
+  
+  # Debug output (optional)
+  # stdout { codec => rubydebug }
+}
+\end{lstlisting}
+
+\section{Elasticsearch Configuration}
+
+\subsection{Cluster Settings}
+
+\begin{lstlisting}[language=yaml, caption={Elasticsearch Environment Configuration}]
+environment:
+  - discovery.type=single-node
+  - xpack.security.enabled=false
+  - ES_JAVA_OPTS=-Xms256m -Xmx256m
+  - cluster.routing.allocation.disk.threshold_enabled=false
+  - action.destructive_requires_name=false
+\end{lstlisting}
+
+\subsection{Index Template}
+
+\begin{lstlisting}[language=json, caption={Elasticsearch Index Template}]
+PUT _index_template/saas-logs-template
+{
+  "index_patterns": ["saas-logs-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.refresh_interval": "5s"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "level": { "type": "keyword" },
+        "endpoint": { "type": "keyword" },
+        "status_code": { "type": "integer" },
+        "response_time_ms": { "type": "float" },
+        "client_ip": { "type": "ip" },
+        "server": { "type": "keyword" },
+        "message": { 
+          "type": "text",
+          "fields": {
+            "keyword": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  }
+}
+\end{lstlisting}
+
+\section{Kibana Configuration}
+
+\subsection{Environment Settings}
+
+\begin{lstlisting}[language=yaml, caption={Kibana Configuration}]
+environment:
+  - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  - SERVER_NAME=kibana
+  - XPACK_SECURITY_ENABLED=false
+  - NODE_OPTIONS=--max-old-space-size=512
+\end{lstlisting}
+
+\subsection{Index Pattern}
+
+After deployment, create the index pattern in Kibana:
+
+\begin{enumerate}
+    \item Navigate to Management $\rightarrow$ Stack Management
+    \item Select Data Views $\rightarrow$ Create data view
+    \item Pattern: \texttt{saas-logs-*}
+    \item Time field: \texttt{@timestamp}
+\end{enumerate}

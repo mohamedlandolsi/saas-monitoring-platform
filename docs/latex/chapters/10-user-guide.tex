@@ -1,0 +1,162 @@
+% ============================================================================
+% Chapter 10: User Guide
+% ============================================================================
+\chapter{User Guide}
+
+\section{Dashboard Overview}
+
+The main dashboard provides a comprehensive overview of log statistics and system health.
+
+\subsection{Key Performance Indicators}
+
+\begin{itemize}
+    \item \textbf{Total Logs:} Total count of indexed log entries
+    \item \textbf{Error Rate:} Percentage of ERROR/CRITICAL logs
+    \item \textbf{Avg Response Time:} Mean API response latency
+    \item \textbf{Slowest Endpoints:} Top 5 endpoints by response time
+\end{itemize}
+
+\subsection{Charts and Visualizations}
+
+\begin{itemize}
+    \item \textbf{Log Level Distribution:} Pie chart showing log levels
+    \item \textbf{Hourly Trends:} Line chart of logs over time
+    \item \textbf{Error Heatmap:} Errors by hour and day
+\end{itemize}
+
+\section{Uploading Log Files}
+
+\subsection{Supported Formats}
+
+\begin{itemize}
+    \item \textbf{CSV:} Comma-separated values with headers
+    \item \textbf{JSON:} Array of log objects or JSON Lines
+\end{itemize}
+
+\subsection{Upload Process}
+
+\begin{enumerate}
+    \item Navigate to the Upload page
+    \item Drag and drop file or click to browse
+    \item Preview file contents
+    \item Click "Upload" to process
+    \item Monitor progress bar
+    \item View confirmation with record count
+\end{enumerate}
+
+\subsection{CSV Format Requirements}
+
+\begin{lstlisting}[caption={Expected CSV Format}]
+timestamp,level,endpoint,status_code,response_time_ms,message
+2024-01-15T10:30:00Z,INFO,/api/users,200,45.2,User login
+2024-01-15T10:30:01Z,ERROR,/api/orders,500,1250.0,DB timeout
+\end{lstlisting}
+
+\section{Searching Logs}
+
+\subsection{Basic Search}
+
+Enter keywords in the search box to find matching logs. The search queries the message, endpoint, and server fields.
+
+\subsection{Advanced Filters}
+
+\begin{itemize}
+    \item \textbf{Log Level:} Filter by INFO, WARNING, ERROR, etc.
+    \item \textbf{Time Range:} Last hour, day, week, or custom
+    \item \textbf{Status Code:} Filter by HTTP status codes
+    \item \textbf{Endpoint:} Filter by specific API endpoints
+\end{itemize}
+
+\subsection{Saving Searches}
+
+\begin{enumerate}
+    \item Configure your search with filters
+    \item Click "Save Search" button
+    \item Enter a name and description
+    \item Access saved searches from dropdown
+\end{enumerate}
+
+\section{Real-Time Log Streaming}
+
+\subsection{Accessing Live Logs}
+
+Navigate to the Live page to view logs in real-time.
+
+\subsection{Controls}
+
+\begin{itemize}
+    \item \textbf{Pause/Resume:} Temporarily stop log streaming
+    \item \textbf{Clear:} Clear the log buffer
+    \item \textbf{Auto-scroll:} Toggle automatic scrolling
+    \item \textbf{Sound:} Toggle alert sounds
+\end{itemize}
+
+\subsection{Filters}
+
+\begin{itemize}
+    \item \textbf{Level Filter:} Show only specific log levels
+    \item \textbf{Endpoint Filter:} Filter by endpoint pattern
+\end{itemize}
+
+\subsection{Notifications}
+
+\begin{itemize}
+    \item \textbf{Desktop Notifications:} Browser alerts for errors
+    \item \textbf{Tab Badge:} Unread error count in tab title
+    \item \textbf{Navbar Flash:} Visual alert on errors
+\end{itemize}
+
+\section{File Management}
+
+\subsection{Viewing Uploaded Files}
+
+The Files page shows all uploaded log files with:
+
+\begin{itemize}
+    \item Filename and original name
+    \item File size and type
+    \item Upload date and time
+    \item Processing status
+    \item Record count
+\end{itemize}
+
+\subsection{File Actions}
+
+\begin{itemize}
+    \item \textbf{Download:} Download the original file
+    \item \textbf{Delete:} Remove file and associated logs
+    \item \textbf{View Logs:} Search logs from this file
+\end{itemize}
+
+\section{Grafana Dashboards}
+
+\subsection{Accessing Grafana}
+
+\begin{enumerate}
+    \item Navigate to http://localhost:3000
+    \item Login with admin/admin123
+    \item Go to Dashboards $\rightarrow$ SaaS Monitoring
+\end{enumerate}
+
+\subsection{Available Dashboards}
+
+\begin{itemize}
+    \item \textbf{SaaS Overview:} Main metrics and KPIs
+    \item \textbf{Service Health:} Component status
+    \item \textbf{System Resources:} CPU, memory, disk
+\end{itemize}
+
+\section{Kibana Visualization}
+
+\subsection{Accessing Kibana}
+
+Navigate to http://localhost:5601 for advanced visualizations.
+
+\subsection{Creating Visualizations}
+
+\begin{enumerate}
+    \item Go to Analytics $\rightarrow$ Discover
+    \item Select the saas-logs-* index pattern
+    \item Use the query bar for searches
+    \item Create visualizations in Analytics $\rightarrow$ Visualize
+\end{enumerate}

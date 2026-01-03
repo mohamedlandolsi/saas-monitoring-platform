@@ -1,0 +1,197 @@
+% ============================================================================
+% Chapter 6: Code Excerpts
+% ============================================================================
+\chapter{Significant Code Excerpts}
+
+This chapter presents the most significant code segments demonstrating key platform functionality.
+
+\section{Prometheus Metrics Instrumentation}
+
+\begin{lstlisting}[language=Python, caption={Prometheus Metrics Definition (utils/metrics.py)}]
+from prometheus_client import Counter, Histogram, Gauge
+
+# HTTP Request Metrics
+http_requests_total = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'status_code']
+)
+
+http_request_latency_seconds = Histogram(
+    'http_request_latency_seconds',
+    'HTTP request latency in seconds',
+    ['method', 'endpoint'],
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+)
+
+# Service Health
+service_health_status = Gauge(
+    'service_health_status',
+    'Health status (1=healthy, 0=unhealthy)',
+    ['service']
+)
+\end{lstlisting}
+
+\section{WebSocket Real-Time Streaming}
+
+\begin{lstlisting}[language=Python, caption={WebSocket Event Handlers (app.py)}]
+@socketio.on('connect')
+def handle_connect():
+    """Handle new WebSocket connection."""
+    client_id = request.sid
+    connected_clients[client_id] = {
+        'connected_at': datetime.utcnow(),
+        'filters': {'level': 'ALL', 'endpoint': ''},
+        'paused': False
+    }
+    emit('connection_status', {
+        'status': 'connected', 
+        'client_id': client_id
+    })
+
+@socketio.on('subscribe_logs')
+def handle_subscribe_logs(data):
+    """Subscribe to live log stream with filters."""
+    client_id = request.sid
+    if client_id in connected_clients:
+        connected_clients[client_id]['filters'] = {
+            'level': data.get('level', 'ALL'),
+            'endpoint': data.get('endpoint', '')
+        }
+        emit('subscription_confirmed', {
+            'filters': connected_clients[client_id]['filters']
+        })
+\end{lstlisting}
+
+\section{Enhanced Health Check Endpoint}
+
+\begin{lstlisting}[language=Python, caption={Health Check Implementation (app.py)}]
+@app.route('/api/health')
+def health_check():
+    """Comprehensive health check endpoint."""
+    health_response = {
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'checks': {},
+        'system': {}
+    }
+    
+    # Elasticsearch check with timing
+    es_start = time.time()
+    try:
+        if es_client and es_client.ping():
+            cluster_health = es_client.cluster.health()
+            health_response['checks']['elasticsearch'] = {
+                'status': 'healthy',
+                'response_time_ms': (time.time() - es_start) * 1000,
+                'details': {
+                    'cluster_status': cluster_health.get('status'),
+                    'active_shards': cluster_health.get('active_shards')
+                }
+            }
+    except Exception as e:
+        health_response['checks']['elasticsearch'] = {
+            'status': 'down',
+            'error': str(e)
+        }
+    
+    # Add system metrics
+    health_response['system'] = {
+        'cpu_percent': psutil.cpu_percent(),
+        'memory_percent': psutil.virtual_memory().percent
+    }
+    
+    return jsonify(health_response)
+\end{lstlisting}
+
+\section{Elasticsearch Search with Optimization}
+
+\begin{lstlisting}[language=Python, caption={Optimized Search Query (app.py)}]
+@app.route('/api/search')
+@cache_result(timeout=300, key_prefix="search")
+def search_logs():
+    """Execute optimized Elasticsearch search."""
+    query = request.args.get('q', '')
+    level = request.args.get('level', '')
+    
+    # Build optimized query
+    es_query = {
+        "bool": {
+            "must": [],
+            "filter": []
+        }
+    }
+    
+    if query:
+        es_query["bool"]["must"].append({
+            "multi_match": {
+                "query": query,
+                "fields": ["message", "endpoint", "server"]
+            }
+        })
+    
+    if level:
+        es_query["bool"]["filter"].append({
+            "term": {"level.keyword": level}
+        })
+    
+    # Execute with source filtering
+    result = es_client.search(
+        index='saas-logs-*',
+        body={
+            'query': es_query,
+            'sort': [{'@timestamp': {'order': 'desc'}}],
+            'size': 50,
+            '_source': ['@timestamp', 'level', 'endpoint', 
+                       'status_code', 'message']
+        }
+    )
+    
+    return jsonify({'hits': result['hits']['hits']})
+\end{lstlisting}
+
+\section{JavaScript Real-Time Log Display}
+
+\begin{lstlisting}[language=JavaScript, caption={Live Log Rendering (live.html)}]
+// Socket.IO connection
+const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000
+});
+
+// Receive new logs
+socket.on('new_logs', (data) => {
+    if (isPaused) return;
+    
+    data.logs.forEach(log => {
+        addLog(log);
+        
+        if (['ERROR', 'CRITICAL'].includes(log.level)) {
+            unreadErrors++;
+            updateTabBadge();
+            flashNavbar();
+            showDesktopNotification(log);
+        }
+    });
+});
+
+// Add log to circular buffer
+function addLog(log) {
+    logs.unshift(log);
+    if (logs.length > MAX_LOGS) {
+        logs.pop();
+        logContainer.lastChild?.remove();
+    }
+    
+    const entry = document.createElement('div');
+    entry.className = `log-entry level-${log.level.toLowerCase()}`;
+    entry.innerHTML = `
+        <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+        <span class="log-level">${log.level}</span>
+        <span class="log-message">${escapeHtml(log.message)}</span>
+    `;
+    
+    logContainer.insertBefore(entry, logContainer.firstChild);
+}
+\end{lstlisting}

@@ -1,0 +1,201 @@
+% ============================================================================
+% Chapter 3: Detailed Architecture
+% ============================================================================
+\chapter{Detailed Component Architecture}
+
+\section{Flask Web Application}
+
+The Flask application serves as the central hub of the platform, providing both the web interface and REST API.
+
+\subsection{Application Structure}
+
+\begin{lstlisting}[language=bash, caption={Application Directory Structure}]
+app/
+├── app.py              # Main application entry point
+├── Dockerfile          # Container configuration
+├── requirements.txt    # Python dependencies
+├── models/             # MongoDB data models
+│   ├── file.py         # File upload metadata
+│   ├── user.py         # User authentication
+│   ├── search_history.py # Query tracking
+│   └── saved_search.py # Saved searches
+├── utils/              # Utility modules
+│   ├── cache.py        # Redis caching
+│   ├── errors.py       # Error handling
+│   ├── performance.py  # Performance optimization
+│   ├── metrics.py      # Prometheus metrics
+│   └── structured_logger.py # JSON logging
+└── templates/          # HTML templates
+    ├── index.html      # Dashboard
+    ├── search.html     # Search interface
+    ├── upload.html     # File upload
+    ├── live.html       # Real-time logs
+    └── files.html      # File management
+\end{lstlisting}
+
+\subsection{Key Features}
+
+\begin{itemize}
+    \item \textbf{REST API:} 20+ endpoints for data access
+    \item \textbf{WebSocket Support:} Real-time log streaming
+    \item \textbf{Authentication:} User registration and login
+    \item \textbf{Caching:} Redis-based query caching
+    \item \textbf{Metrics:} Prometheus instrumentation
+\end{itemize}
+
+\section{Elasticsearch Configuration}
+
+\subsection{Cluster Settings}
+
+\begin{itemize}
+    \item Single-node deployment for development
+    \item 256MB heap size for resource efficiency
+    \item Security features disabled for local development
+    \item Optimized thread pools for search operations
+\end{itemize}
+
+\subsection{Index Mapping}
+
+The \texttt{saas-logs-*} index pattern uses dynamic mapping with specific field types:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Purpose} \\
+\midrule
+@timestamp & date & Event timestamp \\
+level & keyword & Log level (INFO, ERROR, etc.) \\
+endpoint & keyword & API endpoint path \\
+status\_code & integer & HTTP response code \\
+response\_time\_ms & float & Request duration \\
+message & text & Log message content \\
+client\_ip & ip & Client IP address \\
+server & keyword & Server identifier \\
+\bottomrule
+\end{tabular}
+\caption{Elasticsearch Field Mapping}
+\end{table}
+
+\section{Logstash Pipeline}
+
+\subsection{Input Sources}
+
+Logstash accepts logs from multiple sources:
+
+\begin{enumerate}
+    \item \textbf{File Input:} CSV and JSON files from upload directory
+    \item \textbf{TCP Input:} Streaming logs on port 5000
+    \item \textbf{HTTP Input:} Webhook endpoint on port 8080
+    \item \textbf{Redis Input:} Pub/Sub channel for distributed logging
+\end{enumerate}
+
+\subsection{Processing Pipeline}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.8cm,
+    box/.style={rectangle, draw=primaryblue, fill=primaryblue!10,
+                minimum width=3cm, minimum height=0.8cm,
+                text centered, rounded corners=3pt, font=\small},
+    arrow/.style={->, >=stealth, thick, primaryblue}
+]
+
+\node[box] (input) {Input (File/TCP/HTTP)};
+\node[box, below=of input] (parse) {Parse (CSV/JSON)};
+\node[box, below=of parse] (enrich) {Enrich (GeoIP, Dates)};
+\node[box, below=of enrich] (transform) {Transform (Types)};
+\node[box, below=of transform] (output) {Output (Elasticsearch)};
+
+\draw[arrow] (input) -- (parse);
+\draw[arrow] (parse) -- (enrich);
+\draw[arrow] (enrich) -- (transform);
+\draw[arrow] (transform) -- (output);
+
+\end{tikzpicture}
+\caption{Logstash Processing Pipeline}
+\end{figure}
+
+\section{MongoDB Schema Design}
+
+\subsection{Collections}
+
+\begin{description}
+    \item[files] File upload metadata and processing status
+    \item[users] User accounts and authentication data
+    \item[search\_history] Automatic search query logging
+    \item[saved\_searches] User-saved search configurations
+\end{description}
+
+\subsection{File Document Structure}
+
+\begin{lstlisting}[language=json, caption={File Document Schema}]
+{
+  "_id": ObjectId,
+  "filename": "logs_2024.json",
+  "original_filename": "user_upload.json",
+  "file_type": "json",
+  "file_size": 1048576,
+  "status": "processed",
+  "uploaded_at": ISODate,
+  "processed_at": ISODate,
+  "records_count": 10000,
+  "user_id": "user_123"
+}
+\end{lstlisting}
+
+\section{Redis Architecture}
+
+\subsection{Usage Patterns}
+
+\begin{itemize}
+    \item \textbf{Query Cache:} Store search results with 5-minute TTL
+    \item \textbf{Session Store:} User session management
+    \item \textbf{Message Queue:} WebSocket message distribution
+    \item \textbf{Rate Limiting:} API request throttling
+\end{itemize}
+
+\subsection{Key Naming Convention}
+
+\begin{lstlisting}[caption={Redis Key Patterns}]
+cache:stats:*          - Statistics cache
+cache:search:*         - Search results cache
+session:user:*         - User sessions
+queue:logs             - Log streaming queue
+metrics:api:*          - API performance metrics
+\end{lstlisting}
+
+\section{Observability Stack}
+
+\subsection{Prometheus Metrics}
+
+The application exposes the following metric types:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Metric} & \textbf{Type} & \textbf{Labels} \\
+\midrule
+http\_requests\_total & Counter & method, endpoint, status \\
+http\_request\_latency\_seconds & Histogram & method, endpoint \\
+http\_response\_size\_bytes & Histogram & method, endpoint \\
+http\_active\_connections & Gauge & - \\
+service\_health\_status & Gauge & service \\
+system\_cpu\_usage\_percent & Gauge & - \\
+system\_memory\_usage\_percent & Gauge & - \\
+\bottomrule
+\end{tabular}
+\caption{Prometheus Metrics}
+\end{table}
+
+\subsection{Grafana Dashboards}
+
+Pre-configured dashboards include:
+
+\begin{itemize}
+    \item \textbf{SaaS Overview:} Request rates, latency, error rates
+    \item \textbf{Service Health:} Component status indicators
+    \item \textbf{System Resources:} CPU, memory, disk usage
+\end{itemize}

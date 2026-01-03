@@ -1,7 +1,8 @@
 % ============================================================================
 % SaaS Monitoring Platform - Technical Documentation
+% Condensed Version (15-25 pages)
 % ============================================================================
-\documentclass[12pt,a4paper]{report}
+\documentclass[11pt,a4paper]{report}
 
 % ============================================================================
 % Packages
@@ -19,23 +20,27 @@
 \usepackage{longtable}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
-\usepackage{tocloft}
 \usepackage{enumitem}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{tikz}
+\usepackage{multicol}
 \usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds}
 
 % ============================================================================
-% Page Layout
+% Page Layout - Compact margins
 % ============================================================================
 \geometry{
-    left=2.5cm,
-    right=2.5cm,
-    top=2.5cm,
-    bottom=2.5cm,
-    headheight=15pt
+    left=2cm,
+    right=2cm,
+    top=2cm,
+    bottom=2cm,
+    headheight=14pt
 }
+
+% Reduce spacing
+\setlength{\parskip}{0.3em}
+\setlist{noitemsep, topsep=0pt}
 
 % ============================================================================
 % Colors
@@ -44,60 +49,30 @@
 \definecolor{secondarypurple}{RGB}{118, 75, 162}
 \definecolor{codebackground}{RGB}{248, 249, 250}
 \definecolor{codeborder}{RGB}{206, 212, 218}
-\definecolor{successgreen}{RGB}{40, 167, 69}
-\definecolor{warningyellow}{RGB}{255, 193, 7}
-\definecolor{dangerred}{RGB}{220, 53, 69}
 
 % ============================================================================
-% Code Listings Style
+% Code Listings Style - Compact
 % ============================================================================
 \lstdefinestyle{codestyle}{
     backgroundcolor=\color{codebackground},
-    commentstyle=\color{gray},
-    keywordstyle=\color{primaryblue}\bfseries,
-    numberstyle=\tiny\color{gray},
-    stringstyle=\color{secondarypurple},
-    basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,
+    basicstyle=\ttfamily\scriptsize,
     breaklines=true,
     captionpos=b,
-    keepspaces=true,
     numbers=left,
-    numbersep=5pt,
-    showspaces=false,
-    showstringspaces=false,
-    showtabs=false,
-    tabsize=2,
+    numberstyle=\tiny\color{gray},
     frame=single,
     rulecolor=\color{codeborder}
 }
 \lstset{style=codestyle}
-
-% Define JSON language for listings
-\lstdefinelanguage{json}{
-    basicstyle=\ttfamily\footnotesize,
-    string=[s]{"}{"}, 
-    comment=[l]{//},
-    morecomment=[s]{/*}{*/},
-    literate=
-     *{:}{{{\color{secondarypurple}{:}}}}{1}
-      {,}{{{\color{gray}{,}}}}{1}
-      {\{}{{{\color{primaryblue}{\{}}}}{1}
-      {\}}{{{\color{primaryblue}{\}}}}}{1}
-      {[}{{{\color{primaryblue}{[}}}}{1}
-      {]}{{{\color{primaryblue}{]}}}}{1}
-}
 
 % ============================================================================
 % Headers and Footers
 % ============================================================================
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\leftmark}
-\fancyhead[R]{SaaS Monitoring Platform}
+\fancyhead[L]{\small\leftmark}
+\fancyhead[R]{\small SaaS Monitoring Platform}
 \fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\footrulewidth}{0.4pt}
 
 % ============================================================================
 % Hyperref Configuration
@@ -105,29 +80,8 @@
 \hypersetup{
     colorlinks=true,
     linkcolor=primaryblue,
-    filecolor=primaryblue,
-    urlcolor=primaryblue,
-    citecolor=primaryblue,
-    pdftitle={SaaS Monitoring Platform - Technical Documentation},
-    pdfauthor={Development Team},
-    pdfsubject={Technical Documentation}
+    urlcolor=primaryblue
 }
-
-% ============================================================================
-% Document Information
-% ============================================================================
-\title{
-    \vspace{-2cm}
-    \includegraphics[width=0.3\textwidth]{figures/logo.png}\\[1cm]
-    {\Huge\bfseries SaaS Monitoring Platform}\\[0.5cm]
-    {\LARGE Technical Documentation}\\[1cm]
-    {\large Log Analysis and Monitoring with ELK Stack, NoSQL, and Web Interface}
-}
-\author{
-    \textbf{Development Team}\\[0.5cm]
-    IT Business School
-}
-\date{\today}
 
 % ============================================================================
 % Begin Document
@@ -139,45 +93,42 @@
 % ============================================================================
 \begin{titlepage}
     \centering
-    \vspace*{1cm}
+    \vspace*{2cm}
     
-    % Logo placeholder
     \begin{tikzpicture}
         \node[draw=primaryblue, line width=2pt, rounded corners=10pt, 
-              minimum width=4cm, minimum height=2cm, 
-              fill=primaryblue!10] (logo) {
-            \textcolor{primaryblue}{\Huge\bfseries SaaS Monitor}
+              minimum width=5cm, minimum height=2cm, 
+              fill=primaryblue!10] {
+            \textcolor{primaryblue}{\LARGE\bfseries SaaS Monitor}
         };
     \end{tikzpicture}
     
-    \vspace{2cm}
+    \vspace{1.5cm}
     
-    {\Huge\bfseries SaaS Monitoring Platform}\\[0.5cm]
-    {\Large\textcolor{gray}{Log Analysis and Monitoring Application}}\\[0.3cm]
+    {\Huge\bfseries SaaS Monitoring Platform}\\[0.3cm]
+    {\Large Log Analysis and Monitoring Application}\\[0.2cm]
     {\large with ELK Stack, NoSQL, and Web Interface}
     
-    \vspace{2cm}
+    \vspace{1.5cm}
     
-    \begin{tikzpicture}
-        \draw[primaryblue, line width=1pt] (0,0) -- (10,0);
-    \end{tikzpicture}
+    \rule{0.8\textwidth}{0.5pt}
     
     \vspace{1cm}
     
     {\LARGE\bfseries Technical Documentation}
     
-    \vspace{2cm}
+    \vspace{1.5cm}
     
     \begin{tabular}{ll}
-        \textbf{Version:} & 1.0 \\[0.3cm]
-        \textbf{Date:} & \today \\[0.3cm]
-        \textbf{Institution:} & IT Business School \\[0.3cm]
+        \textbf{Version:} & 1.0 \\
+        \textbf{Date:} & \today \\
+        \textbf{Institution:} & IT Business School \\
         \textbf{Scenario:} & D - SaaS Web Application \\
     \end{tabular}
     
     \vfill
     
-    \textcolor{gray}{\small BigData Frameworks Project - October 2025}
+    {\small BigData Frameworks Project - October 2025}
     
 \end{titlepage}
 
@@ -188,36 +139,396 @@
 \newpage
 
 % ============================================================================
-% PART 1: Overview and Architecture
+% PART 1: Introduction and Architecture
 % ============================================================================
-\part{Overview and Architecture}
+\chapter{Introduction}
 
-\input{chapters/01-introduction}
-\input{chapters/02-global-architecture}
-\input{chapters/03-detailed-architecture}
+\section{Context}
+In distributed systems, log production has become exponential. These logs from web applications, microservices, databases, and APIs constitute crucial information for incident detection, performance analysis, security compliance, and business intelligence.
+
+\section{Problem Statement}
+Modern enterprises face challenges: logs dispersed across servers, no centralization, manual searching, no automatic alerting, and no visualization of trends and patterns.
+
+\section{Objectives}
+This platform must:
+\begin{enumerate}
+    \item Centralize log collection from different sources
+    \item Intelligently index data for ultra-fast search
+    \item Provide relevant visualizations
+    \item Offer an intuitive web interface
+    \item Be easily deployable via containerization
+\end{enumerate}
+
+\section{Chosen Scenario: SaaS Web Application}
+We selected \textbf{Scenario D: SaaS Application} - a monitoring platform for a SaaS used by thousands of client companies.
+
+\textbf{Types of logs:} Web server logs, application logs (Flask), database logs, performance logs, API logs.
+
+\textbf{KPIs:} Error rate by service, average response time, slowest endpoints, errors per hour, active users.
 
 % ============================================================================
-% PART 2: Technical Specifications
-% ============================================================================
-\part{Technical Specifications}
+\chapter{Architecture}
 
-\input{chapters/04-technologies}
-\input{chapters/05-modules}
-\input{chapters/06-code-excerpts}
-\input{chapters/07-elk-configuration}
-\input{chapters/08-data-models}
+\section{Global Architecture}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1cm,
+    box/.style={rectangle, draw=primaryblue, fill=primaryblue!10, 
+                minimum width=2cm, minimum height=0.7cm, 
+                text centered, rounded corners=3pt, font=\scriptsize},
+    arrow/.style={->, >=stealth, thick, primaryblue}
+]
+
+\node[box] (browser) {Browser};
+\node[box, below=of browser] (flask) {Flask (5000)};
+\node[box, below left=1cm and 0.5cm of flask] (logstash) {Logstash};
+\node[box, below=of flask] (es) {Elasticsearch};
+\node[box, below right=1cm and 0.5cm of flask] (kibana) {Kibana};
+\node[box, left=1.5cm of es] (mongodb) {MongoDB};
+\node[box, right=1.5cm of es] (redis) {Redis};
+\node[box, below=of es] (prometheus) {Prometheus};
+
+\draw[arrow] (browser) -- (flask);
+\draw[arrow] (flask) -- (es);
+\draw[arrow] (flask) -- (mongodb);
+\draw[arrow] (flask) -- (redis);
+\draw[arrow] (logstash) -- (es);
+\draw[arrow] (kibana) -- (es);
+\draw[arrow] (prometheus) -- (flask);
+
+\end{tikzpicture}
+\caption{System Architecture}
+\end{figure}
+
+\section{Components}
+
+\begin{multicols}{2}
+\textbf{Frontend:} Bootstrap 5, Chart.js, Socket.IO
+
+\textbf{Backend:} Flask 3.0, Flask-SocketIO, Gevent
+
+\textbf{ELK Stack:} Elasticsearch 8.11, Logstash 7.17, Kibana 8.11
+
+\textbf{Databases:} MongoDB 7, Redis 7
+
+\textbf{Observability:} Prometheus, Grafana, Jaeger
+\end{multicols}
+
+\section{Service Ports}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Service} & \textbf{Port} & \textbf{Service} & \textbf{Port} \\
+\midrule
+webapp & 5000 & kibana & 5601 \\
+elasticsearch & 9200 & prometheus & 9090 \\
+logstash & 5044 & grafana & 3000 \\
+mongodb & 27017 & jaeger & 16686 \\
+redis & 6379 & & \\
+\bottomrule
+\end{tabular}
+\caption{Port Mapping}
+\end{table}
 
 % ============================================================================
-% PART 3: Guides and Appendices
-% ============================================================================
-\part{Guides and Validation}
+\chapter{Technical Specifications}
 
-\input{chapters/09-installation-guide}
-\input{chapters/10-user-guide}
-\input{chapters/11-testing-validation}
-\input{chapters/12-challenges-solutions}
-\input{chapters/13-future-improvements}
-\input{chapters/14-conclusion}
-\input{chapters/15-appendices}
+\section{Technology Stack}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Technology} & \textbf{Version} & \textbf{Purpose} \\
+\midrule
+Python & 3.11 & Backend runtime \\
+Flask & 3.0.0 & Web framework \\
+Flask-SocketIO & 5.3.6 & Real-time WebSocket \\
+Elasticsearch & 8.11.0 & Search engine \\
+Logstash & 7.17.0 & Log processing \\
+MongoDB & 7 & Document storage \\
+Redis & 7 & Caching \\
+Prometheus & 2.48.0 & Metrics collection \\
+Grafana & 10.2.2 & Dashboards \\
+Docker Compose & 2.0+ & Orchestration \\
+\bottomrule
+\end{tabular}
+\caption{Technology Versions}
+\end{table}
+
+\section{Developed Modules}
+
+\begin{description}
+    \item[File Management:] Upload, validation, processing of CSV/JSON logs
+    \item[Web Interface:] Dashboard, search, upload, files, live logs pages
+    \item[MongoDB Integration:] Metadata storage with connection pooling
+    \item[Real-Time Streaming:] WebSocket with Redis message queue
+    \item[Observability:] Prometheus metrics, health checks, structured logging
+\end{description}
+
+% ============================================================================
+\chapter{Code Excerpts}
+
+\section{Prometheus Metrics}
+
+\begin{lstlisting}[language=Python]
+from prometheus_client import Counter, Histogram, Gauge
+
+http_requests_total = Counter(
+    'http_requests_total', 'Total HTTP requests',
+    ['method', 'endpoint', 'status_code']
+)
+
+http_request_latency_seconds = Histogram(
+    'http_request_latency_seconds', 'Request latency',
+    ['method', 'endpoint'],
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+)
+\end{lstlisting}
+
+\section{Health Check Endpoint}
+
+\begin{lstlisting}[language=Python]
+@app.route('/api/health')
+def health_check():
+    health = {'status': 'healthy', 'checks': {}, 'system': {}}
+    
+    # Elasticsearch check
+    es_start = time.time()
+    if es_client.ping():
+        health['checks']['elasticsearch'] = {
+            'status': 'healthy',
+            'response_time_ms': (time.time() - es_start) * 1000
+        }
+    
+    # System metrics
+    health['system'] = {
+        'cpu_percent': psutil.cpu_percent(),
+        'memory_percent': psutil.virtual_memory().percent
+    }
+    return jsonify(health)
+\end{lstlisting}
+
+% ============================================================================
+\chapter{ELK Configuration}
+
+\section{Logstash Pipeline}
+
+\begin{lstlisting}
+input {
+  tcp { port => 5000; codec => json_lines }
+  file { path => "/data/uploads/*.csv"; tags => ["csv"] }
+}
+
+filter {
+  if "csv" in [tags] {
+    csv {
+      columns => ["timestamp", "level", "endpoint", 
+                  "status_code", "response_time_ms", "message"]
+    }
+  }
+  date { match => ["timestamp", "ISO8601"] }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "saas-logs-%{+YYYY.MM.dd}"
+  }
+}
+\end{lstlisting}
+
+\section{Elasticsearch Index Mapping}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Purpose} \\
+\midrule
+@timestamp & date & Event time \\
+level & keyword & Log level \\
+endpoint & keyword & API path \\
+status\_code & integer & HTTP status \\
+response\_time\_ms & float & Latency \\
+message & text & Log content \\
+\bottomrule
+\end{tabular}
+\caption{Field Mapping}
+\end{table}
+
+% ============================================================================
+\chapter{Data Models}
+
+\section{MongoDB Collections}
+
+\textbf{files:} \{\_id, filename, file\_type, file\_size, status, uploaded\_at, records\_count\}
+
+\textbf{users:} \{\_id, username, email, password\_hash, created\_at, role\}
+
+\textbf{search\_history:} \{\_id, query, filters, results\_count, timestamp, user\_id\}
+
+\section{Redis Keys}
+
+\begin{verbatim}
+cache:stats:*     - Statistics (TTL: 60s)
+cache:search:*    - Search results (TTL: 300s)
+session:user:*    - User sessions
+queue:logs        - Log streaming queue
+\end{verbatim}
+
+% ============================================================================
+\chapter{Installation Guide}
+
+\section{Prerequisites}
+Docker 20.10+, Docker Compose 2.0+, 8GB RAM minimum.
+
+\section{Quick Start}
+
+\begin{lstlisting}[language=bash]
+git clone https://github.com/mohamedlandolsi/saas-monitoring-platform.git
+cd saas-monitoring-platform
+docker compose up -d
+\end{lstlisting}
+
+\section{Verification}
+
+\begin{lstlisting}[language=bash]
+docker compose ps                    # Check services
+curl http://localhost:5000/api/health  # Test health
+curl http://localhost:5000/metrics    # Test metrics
+\end{lstlisting}
+
+% ============================================================================
+\chapter{User Guide}
+
+\section{Dashboard}
+Access \texttt{http://localhost:5000} to view KPIs: total logs, error rate, average response time, slowest endpoints.
+
+\section{File Upload}
+Navigate to Upload page, drag and drop CSV/JSON files, monitor progress, view record count on completion.
+
+\section{Search}
+Use search box for keyword search, apply filters (level, time, status code), save frequent searches.
+
+\section{Live Logs}
+Access via green ``Live'' button. Features: pause/resume, level filter, auto-scroll, desktop notifications for errors.
+
+\section{Grafana Access}
+URL: \texttt{http://localhost:3000}, credentials: admin/admin123. Dashboard: SaaS Monitoring Overview.
+
+% ============================================================================
+\chapter{Testing and Validation}
+
+\section{API Tests}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Endpoint} & \textbf{P50} & \textbf{P90} & \textbf{P99} \\
+\midrule
+/api/health & 25ms & 45ms & 120ms \\
+/api/stats & 80ms & 150ms & 350ms \\
+/api/search & 120ms & 280ms & 650ms \\
+\bottomrule
+\end{tabular}
+\caption{Response Time Percentiles}
+\end{table}
+
+\section{Validation Checklist}
+
+\begin{itemize}
+    \item[$\checkmark$] All API endpoints respond correctly
+    \item[$\checkmark$] Health checks return accurate status
+    \item[$\checkmark$] Real-time streaming functional
+    \item[$\checkmark$] File upload and processing works
+    \item[$\checkmark$] Search returns relevant results
+    \item[$\checkmark$] Prometheus metrics exposed
+    \item[$\checkmark$] Grafana dashboards display data
+\end{itemize}
+
+% ============================================================================
+\chapter{Challenges and Solutions}
+
+\begin{description}
+    \item[Elasticsearch Memory:] Reduced heap to 256MB, added resource limits
+    \item[Logstash Complexity:] Used tags for input identification, conditional filters
+    \item[WebSocket Scalability:] Flask-SocketIO with Redis message queue
+    \item[Kibana Dependencies:] Docker health checks with service\_healthy condition
+    \item[Performance:] Redis caching, query optimization, pagination
+\end{description}
+
+% ============================================================================
+\chapter{Future Improvements}
+
+\begin{multicols}{2}
+\textbf{Short-term:}
+\begin{itemize}
+    \item ML anomaly detection
+    \item Slack/email alerting
+    \item Custom dashboards
+\end{itemize}
+
+\columnbreak
+
+\textbf{Long-term:}
+\begin{itemize}
+    \item Kubernetes deployment
+    \item Multi-tenancy support
+    \item API versioning
+\end{itemize}
+\end{multicols}
+
+% ============================================================================
+\chapter{Conclusion}
+
+This project successfully delivered a comprehensive SaaS Log Monitoring Platform integrating ELK Stack, MongoDB, Redis, and modern observability tools.
+
+\textbf{Achievements:}
+\begin{itemize}
+    \item Centralized log collection from multiple sources
+    \item Sub-second search with Elasticsearch
+    \item Real-time streaming via WebSocket
+    \item Prometheus metrics and Grafana dashboards
+    \item Containerized deployment with Docker Compose
+\end{itemize}
+
+The modular architecture ensures extensibility and easy scaling.
+
+% ============================================================================
+\chapter{Appendices}
+
+\section{API Reference}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\midrule
+/api/health & GET & Service health \\
+/api/stats & GET & Log statistics \\
+/metrics & GET & Prometheus metrics \\
+/api/logs & GET & Query logs \\
+/api/search & GET & Search logs \\
+/api/upload & POST & Upload file \\
+/api/files & GET & List files \\
+\bottomrule
+\end{tabular}
+\caption{API Endpoints}
+\end{table}
+
+\section{References}
+\begin{enumerate}
+    \item Elasticsearch: \url{https://www.elastic.co/guide/}
+    \item Flask: \url{https://flask.palletsprojects.com/}
+    \item Docker: \url{https://docs.docker.com/}
+    \item Prometheus: \url{https://prometheus.io/docs/}
+\end{enumerate}
 
 \end{document}

@@ -1,13 +1,23 @@
 % ============================================================================
-% Chapter 10: User Guide
+% Chapter 10: User Guide with Screenshots
 % ============================================================================
 \chapter{User Guide}
+
+This chapter provides a comprehensive guide to using the SaaS Monitoring Platform, with visual references for each major feature.
 
 \section{Dashboard Overview}
 
 The main dashboard provides a comprehensive overview of log statistics and system health.
 
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Main Dashboard]}\\\texttt{http://localhost:5000}\vspace{3cm}}}
+\caption{Main Dashboard - Statistics Overview}
+\end{figure}
+
 \subsection{Key Performance Indicators}
+
+The dashboard displays real-time KPIs including:
 
 \begin{itemize}
     \item \textbf{Total Logs:} Total count of indexed log entries
@@ -19,12 +29,18 @@ The main dashboard provides a comprehensive overview of log statistics and syste
 \subsection{Charts and Visualizations}
 
 \begin{itemize}
-    \item \textbf{Log Level Distribution:} Pie chart showing log levels
+    \item \textbf{Log Level Distribution:} Pie chart showing log levels (INFO, WARNING, ERROR, etc.)
     \item \textbf{Hourly Trends:} Line chart of logs over time
     \item \textbf{Error Heatmap:} Errors by hour and day
 \end{itemize}
 
 \section{Uploading Log Files}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: File Upload Page]}\\\texttt{http://localhost:5000/upload}\vspace{3cm}}}
+\caption{File Upload Interface}
+\end{figure}
 
 \subsection{Supported Formats}
 
@@ -36,127 +52,214 @@ The main dashboard provides a comprehensive overview of log statistics and syste
 \subsection{Upload Process}
 
 \begin{enumerate}
-    \item Navigate to the Upload page
+    \item Navigate to the Upload page via the navigation bar
     \item Drag and drop file or click to browse
-    \item Preview file contents
-    \item Click "Upload" to process
-    \item Monitor progress bar
-    \item View confirmation with record count
+    \item Preview file contents in the preview panel
+    \item Click ``Upload'' to process the file
+    \item Monitor the progress bar during upload
+    \item View confirmation message with record count
 \end{enumerate}
 
 \subsection{CSV Format Requirements}
 
-\begin{lstlisting}[caption={Expected CSV Format}]
+Expected CSV format with the following headers:
+
+\begin{verbatim}
 timestamp,level,endpoint,status_code,response_time_ms,message
 2024-01-15T10:30:00Z,INFO,/api/users,200,45.2,User login
 2024-01-15T10:30:01Z,ERROR,/api/orders,500,1250.0,DB timeout
-\end{lstlisting}
+\end{verbatim}
 
 \section{Searching Logs}
 
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Search Interface]}\\\texttt{http://localhost:5000/search}\vspace{3cm}}}
+\caption{Advanced Search Interface}
+\end{figure}
+
 \subsection{Basic Search}
 
-Enter keywords in the search box to find matching logs. The search queries the message, endpoint, and server fields.
+Enter keywords in the search box to find matching logs. The search queries the message, endpoint, and server fields simultaneously.
 
 \subsection{Advanced Filters}
 
-\begin{itemize}
-    \item \textbf{Log Level:} Filter by INFO, WARNING, ERROR, etc.
-    \item \textbf{Time Range:} Last hour, day, week, or custom
-    \item \textbf{Status Code:} Filter by HTTP status codes
-    \item \textbf{Endpoint:} Filter by specific API endpoints
-\end{itemize}
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Filter} & \textbf{Description} \\
+\midrule
+Log Level & Filter by INFO, WARNING, ERROR, CRITICAL, DEBUG \\
+Time Range & Last hour, day, week, month, or custom range \\
+Status Code & Filter by HTTP status codes (200, 404, 500, etc.) \\
+Endpoint & Filter by specific API endpoint patterns \\
+Server & Filter by server identifier \\
+\bottomrule
+\end{tabular}
+\caption{Available Search Filters}
+\end{table}
 
 \subsection{Saving Searches}
 
 \begin{enumerate}
-    \item Configure your search with filters
-    \item Click "Save Search" button
-    \item Enter a name and description
-    \item Access saved searches from dropdown
+    \item Configure your search with desired filters
+    \item Click the ``Save Search'' button
+    \item Enter a name and optional description
+    \item Access saved searches from the dropdown menu
 \end{enumerate}
 
 \section{Real-Time Log Streaming}
 
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Live Logs Page]}\\\texttt{http://localhost:5000/live}\vspace{3cm}}}
+\caption{Real-Time Log Streaming Interface}
+\end{figure}
+
 \subsection{Accessing Live Logs}
 
-Navigate to the Live page to view logs in real-time.
+Navigate to the Live page using the green ``Live'' button in the navigation bar to view logs in real-time.
 
-\subsection{Controls}
+\subsection{Stream Controls}
 
-\begin{itemize}
-    \item \textbf{Pause/Resume:} Temporarily stop log streaming
-    \item \textbf{Clear:} Clear the log buffer
-    \item \textbf{Auto-scroll:} Toggle automatic scrolling
-    \item \textbf{Sound:} Toggle alert sounds
-\end{itemize}
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Control} & \textbf{Function} \\
+\midrule
+Pause/Resume & Temporarily stop or resume log streaming \\
+Clear & Clear all logs from the display buffer \\
+Auto-scroll & Toggle automatic scrolling to latest logs \\
+Sound & Toggle alert sounds for error notifications \\
+\bottomrule
+\end{tabular}
+\caption{Live Stream Controls}
+\end{table}
 
-\subsection{Filters}
+\subsection{Real-Time Filters}
 
 \begin{itemize}
     \item \textbf{Level Filter:} Show only specific log levels
     \item \textbf{Endpoint Filter:} Filter by endpoint pattern
 \end{itemize}
 
-\subsection{Notifications}
+\subsection{Notification Features}
 
 \begin{itemize}
-    \item \textbf{Desktop Notifications:} Browser alerts for errors
-    \item \textbf{Tab Badge:} Unread error count in tab title
-    \item \textbf{Navbar Flash:} Visual alert on errors
+    \item \textbf{Desktop Notifications:} Browser alerts for ERROR/CRITICAL logs (requires permission)
+    \item \textbf{Tab Badge:} Unread error count displayed in browser tab title
+    \item \textbf{Navbar Flash:} Visual alert with animated navbar on errors
+    \item \textbf{Sound Alerts:} Optional audio notification for errors
 \end{itemize}
 
 \section{File Management}
 
-\subsection{Viewing Uploaded Files}
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Files Management Page]}\\\texttt{http://localhost:5000/files}\vspace{3cm}}}
+\caption{Uploaded Files Management}
+\end{figure}
 
-The Files page shows all uploaded log files with:
+\subsection{File List View}
+
+The Files page displays all uploaded log files with:
 
 \begin{itemize}
-    \item Filename and original name
-    \item File size and type
+    \item Filename and original upload name
+    \item File size and type (CSV/JSON)
     \item Upload date and time
-    \item Processing status
-    \item Record count
+    \item Processing status (pending/processing/processed/error)
+    \item Number of records processed
 \end{itemize}
 
 \subsection{File Actions}
 
 \begin{itemize}
-    \item \textbf{Download:} Download the original file
-    \item \textbf{Delete:} Remove file and associated logs
-    \item \textbf{View Logs:} Search logs from this file
+    \item \textbf{Download:} Download the original uploaded file
+    \item \textbf{Delete:} Remove file and associated logs from the system
+    \item \textbf{View Logs:} Quick link to search logs from this file
 \end{itemize}
 
 \section{Grafana Dashboards}
 
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Grafana Dashboard]}\\\texttt{http://localhost:3000}\vspace{3cm}}}
+\caption{Grafana Metrics Dashboard}
+\end{figure}
+
 \subsection{Accessing Grafana}
 
 \begin{enumerate}
-    \item Navigate to http://localhost:3000
-    \item Login with admin/admin123
-    \item Go to Dashboards $\rightarrow$ SaaS Monitoring
+    \item Navigate to \texttt{http://localhost:3000}
+    \item Login with credentials: \texttt{admin} / \texttt{admin123}
+    \item Go to Dashboards $\rightarrow$ SaaS Monitoring $\rightarrow$ SaaS Monitoring - Overview
 \end{enumerate}
 
 \subsection{Available Dashboards}
 
-\begin{itemize}
-    \item \textbf{SaaS Overview:} Main metrics and KPIs
-    \item \textbf{Service Health:} Component status
-    \item \textbf{System Resources:} CPU, memory, disk
-\end{itemize}
+\begin{description}
+    \item[SaaS Overview] Main metrics including requests/sec, latency percentiles, error rates
+    \item[Service Health] Component status indicators for ES, MongoDB, Redis, Logstash
+    \item[System Resources] CPU, memory, and disk usage graphs
+\end{description}
 
 \section{Kibana Visualization}
 
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering\vspace{3cm}\textit{[Screenshot: Kibana Discover]}\\\texttt{http://localhost:5601}\vspace{3cm}}}
+\caption{Kibana Log Explorer}
+\end{figure}
+
 \subsection{Accessing Kibana}
 
-Navigate to http://localhost:5601 for advanced visualizations.
+Navigate to \texttt{http://localhost:5601} for advanced Elasticsearch visualizations.
 
 \subsection{Creating Visualizations}
 
 \begin{enumerate}
     \item Go to Analytics $\rightarrow$ Discover
-    \item Select the saas-logs-* index pattern
-    \item Use the query bar for searches
-    \item Create visualizations in Analytics $\rightarrow$ Visualize
+    \item Select the \texttt{saas-logs-*} index pattern
+    \item Use the query bar for KQL searches
+    \item Create visualizations in Analytics $\rightarrow$ Visualize Library
+    \item Build dashboards by combining multiple visualizations
 \end{enumerate}
+
+\section{Quick Reference}
+
+\subsection{Service URLs}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Service} & \textbf{URL} & \textbf{Purpose} \\
+\midrule
+Web Application & http://localhost:5000 & Main interface \\
+Grafana & http://localhost:3000 & Metrics dashboards \\
+Kibana & http://localhost:5601 & Log visualization \\
+Prometheus & http://localhost:9090 & Metrics queries \\
+Jaeger & http://localhost:16686 & Distributed tracing \\
+\bottomrule
+\end{tabular}
+\caption{Service Access URLs}
+\end{table}
+
+\subsection{Keyboard Shortcuts}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Shortcut} & \textbf{Action} \\
+\midrule
+Ctrl + Enter & Execute search \\
+Escape & Clear filters \\
+Space (Live page) & Pause/Resume stream \\
+\bottomrule
+\end{tabular}
+\caption{Keyboard Shortcuts}
+\end{table}

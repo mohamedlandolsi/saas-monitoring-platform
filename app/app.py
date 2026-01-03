@@ -31,6 +31,16 @@ from utils.performance import (
     QueryCache, cache_query, Pagination, ESQueryOptimizer,
     ResponseCompression, PerformanceMonitor, measure_time
 )
+from utils.metrics import (
+    http_requests_total, http_request_latency_seconds, http_response_size_bytes,
+    http_active_connections, elasticsearch_queries_total, elasticsearch_query_latency_seconds,
+    saas_websocket_connections, saas_searches_total, saas_file_uploads_total,
+    service_health_status, service_health_latency_seconds, get_metrics, get_content_type
+)
+from utils.structured_logger import (
+    get_trace_id, set_trace_id, clear_trace_id, get_structured_logger
+)
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -788,69 +798,205 @@ def api_current_user() -> Tuple[Dict[str, Any], int]:
         'user': user
     }), 200
 
+@app.route('/metrics')
+def prometheus_metrics():
+    """
+    Prometheus metrics endpoint.
+    Returns metrics in Prometheus text format.
+    """
+    return Response(get_metrics(), mimetype=get_content_type())
+
+
 @app.route('/api/health')
 def health_check() -> Tuple[Dict[str, Any], int]:
     """
-    Health check endpoint to verify service dependencies.
+    Comprehensive health check endpoint.
     
-    Checks connectivity to Elasticsearch, MongoDB, and Redis.
-    Returns overall health status and individual service statuses.
+    Returns detailed health status for each dependency including:
+    - Status (healthy/degraded/down)
+    - Response time for each check
+    - Memory/CPU usage
+    - Elasticsearch cluster health
+    - MongoDB latency
+    - Redis memory usage
+    - Logstash API status
     
     Returns:
-        Tuple[Dict[str, Any], int]: JSON response with health status and HTTP status code
-        
-    Response Format:
-        {
-            "status": "healthy" | "unhealthy",
-            "elasticsearch": bool,
-            "mongodb": bool,
-            "redis": bool,
-            "healthy": bool
-        }
+        JSON response with health status and HTTP status code
     """
-    health_status = {
+    import psutil
+    
+    health_response = {
         'status': 'healthy',
-        'elasticsearch': False,
-        'mongodb': False,
-        'redis': False,
-        'healthy': False
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'checks': {},
+        'system': {}
     }
     
-    # Check Elasticsearch
-    if es_client:
-        try:
-            health_status['elasticsearch'] = es_client.ping()
-        except:
-            pass
+    all_healthy = True
+    degraded = False
     
-    # Check MongoDB
-    if mongo_client:
-        try:
-            mongo_client.admin.command('ping')
-            health_status['mongodb'] = True
-        except:
-            pass
+    # ============================================================
+    # Elasticsearch Health Check
+    # ============================================================
+    es_start = time.time()
+    es_check = {
+        'status': 'down',
+        'response_time_ms': 0,
+        'details': {}
+    }
+    try:
+        if es_client:
+            # Ping check
+            if es_client.ping():
+                # Get cluster health
+                cluster_health = es_client.cluster.health()
+                es_check['status'] = 'healthy' if cluster_health.get('status') == 'green' else 'degraded'
+                es_check['details'] = {
+                    'cluster_name': cluster_health.get('cluster_name'),
+                    'cluster_status': cluster_health.get('status'),
+                    'number_of_nodes': cluster_health.get('number_of_nodes'),
+                    'active_shards': cluster_health.get('active_shards')
+                }
+                if cluster_health.get('status') == 'yellow':
+                    degraded = True
+            else:
+                all_healthy = False
+        else:
+            all_healthy = False
+    except Exception as e:
+        es_check['status'] = 'down'
+        es_check['error'] = str(e)
+        all_healthy = False
+    es_check['response_time_ms'] = round((time.time() - es_start) * 1000, 2)
+    health_response['checks']['elasticsearch'] = es_check
+    service_health_status.labels(service='elasticsearch').set(1 if es_check['status'] != 'down' else 0)
+    service_health_latency_seconds.labels(service='elasticsearch').set(es_check['response_time_ms'] / 1000)
     
-    # Check Redis
-    if redis_client:
-        try:
-            redis_client.ping()
-            health_status['redis'] = True
-        except:
-            pass
+    # ============================================================
+    # MongoDB Health Check
+    # ============================================================
+    mongo_start = time.time()
+    mongo_check = {
+        'status': 'down',
+        'response_time_ms': 0,
+        'details': {}
+    }
+    try:
+        if mongo_client:
+            result = mongo_client.admin.command('ping')
+            if result.get('ok') == 1:
+                mongo_check['status'] = 'healthy'
+                # Get server status for additional info
+                try:
+                    server_status = mongo_client.admin.command('serverStatus')
+                    mongo_check['details'] = {
+                        'connections_current': server_status.get('connections', {}).get('current'),
+                        'connections_available': server_status.get('connections', {}).get('available')
+                    }
+                except:
+                    pass
+            else:
+                all_healthy = False
+        else:
+            all_healthy = False
+    except Exception as e:
+        mongo_check['status'] = 'down'
+        mongo_check['error'] = str(e)
+        all_healthy = False
+    mongo_check['response_time_ms'] = round((time.time() - mongo_start) * 1000, 2)
+    health_response['checks']['mongodb'] = mongo_check
+    service_health_status.labels(service='mongodb').set(1 if mongo_check['status'] == 'healthy' else 0)
+    service_health_latency_seconds.labels(service='mongodb').set(mongo_check['response_time_ms'] / 1000)
     
-    # Overall health
-    health_status['healthy'] = (
-        health_status['elasticsearch'] and 
-        health_status['mongodb'] and 
-        health_status['redis']
-    )
+    # ============================================================
+    # Redis Health Check
+    # ============================================================
+    redis_start = time.time()
+    redis_check = {
+        'status': 'down',
+        'response_time_ms': 0,
+        'details': {}
+    }
+    try:
+        if redis_client:
+            if redis_client.ping():
+                redis_check['status'] = 'healthy'
+                # Get memory info
+                try:
+                    info = redis_client.info('memory')
+                    redis_check['details'] = {
+                        'used_memory': info.get('used_memory_human'),
+                        'max_memory': info.get('maxmemory_human', 'unlimited')
+                    }
+                except:
+                    pass
+            else:
+                all_healthy = False
+        else:
+            all_healthy = False
+    except Exception as e:
+        redis_check['status'] = 'down'
+        redis_check['error'] = str(e)
+        all_healthy = False
+    redis_check['response_time_ms'] = round((time.time() - redis_start) * 1000, 2)
+    health_response['checks']['redis'] = redis_check
+    service_health_status.labels(service='redis').set(1 if redis_check['status'] == 'healthy' else 0)
+    service_health_latency_seconds.labels(service='redis').set(redis_check['response_time_ms'] / 1000)
     
-    if not health_status['healthy']:
-        health_status['status'] = 'unhealthy'
+    # ============================================================
+    # Logstash Health Check (via API)
+    # ============================================================
+    logstash_start = time.time()
+    logstash_check = {
+        'status': 'down',
+        'response_time_ms': 0,
+        'details': {}
+    }
+    try:
+        import urllib.request
+        req = urllib.request.urlopen('http://logstash:9600/_node/stats', timeout=5)
+        if req.status == 200:
+            logstash_check['status'] = 'healthy'
+            data = json.loads(req.read().decode('utf-8'))
+            logstash_check['details'] = {
+                'jvm_memory_used': data.get('jvm', {}).get('mem', {}).get('heap_used_in_bytes'),
+                'events_in': data.get('events', {}).get('in'),
+                'events_out': data.get('events', {}).get('out')
+            }
+    except Exception as e:
+        logstash_check['status'] = 'down'
+        logstash_check['error'] = str(e)
+        # Logstash being down doesn't fail the app
+    logstash_check['response_time_ms'] = round((time.time() - logstash_start) * 1000, 2)
+    health_response['checks']['logstash'] = logstash_check
+    service_health_status.labels(service='logstash').set(1 if logstash_check['status'] == 'healthy' else 0)
+    service_health_latency_seconds.labels(service='logstash').set(logstash_check['response_time_ms'] / 1000)
     
-    status_code = 200 if health_status['healthy'] else 503
-    return jsonify(health_status), status_code
+    # ============================================================
+    # System Metrics
+    # ============================================================
+    try:
+        health_response['system'] = {
+            'cpu_percent': psutil.cpu_percent(interval=None),
+            'memory_percent': psutil.virtual_memory().percent,
+            'memory_used_bytes': psutil.virtual_memory().used,
+            'disk_percent': psutil.disk_usage('/').percent
+        }
+    except:
+        pass
+    
+    # ============================================================
+    # Overall Status
+    # ============================================================
+    if not all_healthy:
+        health_response['status'] = 'down'
+    elif degraded:
+        health_response['status'] = 'degraded'
+    
+    status_code = 200 if all_healthy else (503 if health_response['status'] == 'down' else 200)
+    return jsonify(health_response), status_code
+
 
 @app.route('/api/stats')
 @cache_result(timeout=60, key_prefix="stats")
@@ -2728,26 +2874,66 @@ def get_performance_metrics() -> Tuple[Dict[str, Any], int]:
 
 @app.before_request
 def before_request():
-    """Track request start time for performance monitoring."""
+    """Track request start time, set trace ID, and increment active connections."""
     request.start_time = time.time()
+    
+    # Set trace ID from header or generate new one
+    trace_id = request.headers.get('X-Trace-ID') or str(uuid.uuid4()).replace('-', '')[:16]
+    set_trace_id(trace_id)
+    request.trace_id = trace_id
+    
+    # Track active connections
+    http_active_connections.inc()
 
 
 @app.after_request
 def after_request(response):
     """
-    Log request details and track performance metrics.
-    
-    - Records API response times
-    - Logs request duration
-    - Tracks endpoint performance
+    Log request details, track Prometheus metrics, and add trace ID header.
     """
+    # Decrement active connections
+    http_active_connections.dec()
+    
+    # Add trace ID to response headers
+    if hasattr(request, 'trace_id'):
+        response.headers['X-Trace-ID'] = request.trace_id
+    
     # Calculate request duration
     if hasattr(request, 'start_time'):
-        duration = (time.time() - request.start_time) * 1000  # Convert to ms
+        duration_seconds = time.time() - request.start_time
+        duration_ms = duration_seconds * 1000
+        
+        # Get simplified endpoint for labeling
+        endpoint = request.path
+        if endpoint.startswith('/api/'):
+            # Simplify dynamic paths
+            parts = endpoint.split('/')
+            if len(parts) > 3:
+                endpoint = '/'.join(parts[:4]) + '/...'
+        
+        # Record Prometheus metrics
+        http_requests_total.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status_code=str(response.status_code)
+        ).inc()
+        
+        http_request_latency_seconds.labels(
+            method=request.method,
+            endpoint=endpoint
+        ).observe(duration_seconds)
+        
+        # Record response size if available
+        content_length = response.content_length
+        if content_length:
+            http_response_size_bytes.labels(
+                method=request.method,
+                endpoint=endpoint
+            ).observe(content_length)
         
         # Log request details
         app.logger.info(
-            f"{request.method} {request.path} - {response.status_code} - {duration:.2f}ms"
+            f"{request.method} {request.path} - {response.status_code} - {duration_ms:.2f}ms"
         )
         
         # Record API performance metric

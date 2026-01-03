@@ -1,0 +1,127 @@
+# Prometheus Alert Rules
+groups:
+  - name: saas_monitoring_alerts
+    rules:
+      # ============================================================
+      # Infrastructure Alerts
+      # ============================================================
+      
+      - alert: HighCpuUsage
+        expr: system_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 5 minutes (current: {{ $value }}%)"
+
+      - alert: HighMemoryUsage
+        expr: system_memory_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% for more than 5 minutes (current: {{ $value }}%)"
+
+      - alert: LowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is above 90%"
+
+      # ============================================================
+      # Service Health Alerts
+      # ============================================================
+      
+      - alert: ServiceDown
+        expr: service_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.service }} is down"
+          description: "The {{ $labels.service }} service has been down for more than 1 minute"
+
+      - alert: ElasticsearchDown
+        expr: service_health_status{service="elasticsearch"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elasticsearch is down"
+          description: "Elasticsearch service is not responding"
+
+      - alert: MongoDBDown
+        expr: service_health_status{service="mongodb"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB service is not responding"
+
+      - alert: RedisDown
+        expr: service_health_status{service="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis service is not responding"
+
+      # ============================================================
+      # Performance Alerts
+      # ============================================================
+      
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_latency_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95th percentile latency is above 2 seconds (current: {{ $value }}s)"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 5% of requests are returning 5xx errors"
+
+      - alert: HighElasticsearchLatency
+        expr: histogram_quantile(0.95, rate(elasticsearch_query_latency_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Elasticsearch query latency"
+          description: "95th percentile ES query latency is above 5 seconds"
+
+      # ============================================================
+      # Business Alerts
+      # ============================================================
+      
+      - alert: LowLogIngestionRate
+        expr: rate(saas_logs_ingested_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No logs being ingested"
+          description: "No new logs have been ingested in the last 10 minutes"
+
+      - alert: HighWebSocketConnections
+        expr: saas_websocket_connections > 100
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "High WebSocket connections"
+          description: "More than 100 WebSocket connections active"

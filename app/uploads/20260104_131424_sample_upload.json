@@ -1,0 +1,202 @@
+[
+  {
+    "timestamp": "2026-01-04T10:17:11.258062Z",
+    "level": "INFO",
+    "endpoint": "/api/users",
+    "status_code": 200,
+    "response_time_ms": 247.34,
+    "message": "User login success",
+    "client_ip": "192.168.1.108",
+    "user_id": "user_825"
+  },
+  {
+    "timestamp": "2026-01-04T10:12:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/orders",
+    "status_code": 500,
+    "response_time_ms": 394.16,
+    "message": "Null pointer exception",
+    "client_ip": "192.168.1.59",
+    "user_id": "user_130"
+  },
+  {
+    "timestamp": "2026-01-04T10:07:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/login",
+    "status_code": 429,
+    "response_time_ms": 210.69,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.80",
+    "user_id": "user_791"
+  },
+  {
+    "timestamp": "2026-01-04T10:02:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/search",
+    "status_code": 500,
+    "response_time_ms": 279.95,
+    "message": "Null pointer exception",
+    "client_ip": "192.168.1.92",
+    "user_id": "user_745"
+  },
+  {
+    "timestamp": "2026-01-04T09:57:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/search",
+    "status_code": 429,
+    "response_time_ms": 291.74,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.15",
+    "user_id": "user_599"
+  },
+  {
+    "timestamp": "2026-01-04T09:52:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/stats",
+    "status_code": 500,
+    "response_time_ms": 248.07,
+    "message": "Null pointer exception",
+    "client_ip": "192.168.1.215",
+    "user_id": "user_738"
+  },
+  {
+    "timestamp": "2026-01-04T09:47:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/users",
+    "status_code": 429,
+    "response_time_ms": 309.2,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.156",
+    "user_id": "user_171"
+  },
+  {
+    "timestamp": "2026-01-04T09:42:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/orders",
+    "status_code": 429,
+    "response_time_ms": 371.74,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.75",
+    "user_id": "user_496"
+  },
+  {
+    "timestamp": "2026-01-04T09:37:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/search",
+    "status_code": 429,
+    "response_time_ms": 275.52,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.202",
+    "user_id": "user_906"
+  },
+  {
+    "timestamp": "2026-01-04T09:32:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/users",
+    "status_code": 429,
+    "response_time_ms": 417.04,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.9",
+    "user_id": "user_208"
+  },
+  {
+    "timestamp": "2026-01-04T09:27:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/login",
+    "status_code": 500,
+    "response_time_ms": 459.91,
+    "message": "Authentication failed",
+    "client_ip": "192.168.1.206",
+    "user_id": "user_889"
+  },
+  {
+    "timestamp": "2026-01-04T09:22:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/login",
+    "status_code": 429,
+    "response_time_ms": 481.85,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.148",
+    "user_id": "user_753"
+  },
+  {
+    "timestamp": "2026-01-04T09:17:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/orders",
+    "status_code": 500,
+    "response_time_ms": 98.71,
+    "message": "Authentication failed",
+    "client_ip": "192.168.1.254",
+    "user_id": "user_376"
+  },
+  {
+    "timestamp": "2026-01-04T09:12:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/stats",
+    "status_code": 429,
+    "response_time_ms": 75.35,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.35",
+    "user_id": "user_965"
+  },
+  {
+    "timestamp": "2026-01-04T09:07:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/stats",
+    "status_code": 429,
+    "response_time_ms": 441.03,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.254",
+    "user_id": "user_349"
+  },
+  {
+    "timestamp": "2026-01-04T09:02:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/users",
+    "status_code": 429,
+    "response_time_ms": 62.62,
+    "message": "Rate limit approaching",
+    "client_ip": "192.168.1.195",
+    "user_id": "user_660"
+  },
+  {
+    "timestamp": "2026-01-04T08:57:11.258062Z",
+    "level": "ERROR",
+    "endpoint": "/api/login",
+    "status_code": 500,
+    "response_time_ms": 112.3,
+    "message": "Database timeout",
+    "client_ip": "192.168.1.215",
+    "user_id": "user_497"
+  },
+  {
+    "timestamp": "2026-01-04T08:52:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/login",
+    "status_code": 429,
+    "response_time_ms": 471.17,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.56",
+    "user_id": "user_321"
+  },
+  {
+    "timestamp": "2026-01-04T08:47:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/users",
+    "status_code": 429,
+    "response_time_ms": 325.37,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.109",
+    "user_id": "user_273"
+  },
+  {
+    "timestamp": "2026-01-04T08:42:11.258062Z",
+    "level": "WARNING",
+    "endpoint": "/api/orders",
+    "status_code": 429,
+    "response_time_ms": 254.72,
+    "message": "High latency detected",
+    "client_ip": "192.168.1.211",
+    "user_id": "user_653"
+  }
+]

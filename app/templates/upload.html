@@ -465,7 +465,7 @@
             });
 
             xhr.addEventListener('load', () => {
-                if (xhr.status === 201) {
+                if (xhr.status === 200 || xhr.status === 201) {
                     const response = JSON.parse(xhr.responseText);
                     showSuccess(response);
                     setTimeout(resetForm, 3000);

@@ -5,8 +5,11 @@ A production-ready, high-performance log monitoring and analytics platform for S
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0-green.svg)](https://flask.palletsprojects.com/)
 [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-7.17-yellow.svg)](https://www.elastic.co/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-orange.svg)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-orange.svg)](https://grafana.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![License](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)
+
 
 ## 📖 Table of Contents
 
@@ -23,6 +26,7 @@ A production-ready, high-performance log monitoring and analytics platform for S
 - [Troubleshooting](#-troubleshooting)
 - [Future Improvements](#-future-improvements)
 - [Contributing](#-contributing)
+- [Documentation](#-documentation)
 - [Credits](#-credits)
 
 ## Overview
@@ -81,6 +85,19 @@ Perfect for DevOps teams, SRE engineers, and developers who need to monitor, deb
 │  - CSV Files   │
 │  - JSON Files  │
 └────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │
+┌───────▼────────┐  ┌──────▼──────┐  ┌────────▼────────┐
+│   Prometheus   │  │   Grafana   │  │    Jaeger       │
+│  (Port 9090)   │  │ (Port 3000) │  │  (Port 16686)   │
+│                │  │             │  │                 │
+│  - Metrics     │  │  - Dashbrd  │  │  - Tracing      │
+│  - Alerting    │  │  - Charts   │  │  - Spans        │
+└───────┬────────┘  └──────┬──────┘  └────────┬────────┘
+        │                   │                   │
+        └───────────────────┼───────────────────┘
+
 ```
 
 ### Data Flow
@@ -151,6 +168,14 @@ Perfect for DevOps teams, SRE engineers, and developers who need to monitor, deb
   - Cache hit rate statistics
   - Request logging with duration
 
+- ✅ **Observability & Tracing**
+  - **Prometheus**: System and application metrics collection
+  - **Grafana**: Comprehensive dashboards for infrastructure and services
+  - **Jaeger**: Distributed tracing for request latency analysis
+  - **Alerting**: Prometheus alert rules for high error rates and latency
+  - **Health Checks**: Detailed component status monitoring
+
+
 ### Advanced Features
 
 - 🔍 **Search History**
@@ -181,6 +206,9 @@ Perfect for DevOps teams, SRE engineers, and developers who need to monitor, deb
 | **Visualization** | Kibana | 7.17.0 | Data exploration and dashboards |
 | **Database** | MongoDB | 7.0 | NoSQL database for metadata |
 | **Cache** | Redis | 7.0 | In-memory cache and sessions |
+| **Monitoring** | Prometheus | 2.48.0 | Metrics collection and alerting |
+| **Dashboards** | Grafana | 10.2.2 | Operational dashboards |
+| **Tracing** | Jaeger | 1.50.0 | Distributed tracing |
 | **Container** | Docker | 20.10+ | Containerization platform |
 | **Orchestration** | Docker Compose | 2.0+ | Multi-container orchestration |
 | **Language** | Python | 3.9+ | Backend programming language |
@@ -343,6 +371,9 @@ Open your browser and navigate to:
 - **Kibana**: http://localhost:5601
 - **Elasticsearch**: http://localhost:9200
 - **Performance Metrics**: http://localhost:5000/api/performance
+- **Grafana**: http://localhost:3000 (admin/admin123)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
 
 **First-time setup:**
 1. Register a new user account at http://localhost:5000/login
@@ -1567,6 +1598,16 @@ black app/
 - Write docstrings for functions and classes
 - Keep functions small and focused
 - Add comments for complex logic
+
+- Add comments for complex logic
+
+## 📚 Documentation
+
+The project includes comprehensive technical documentation in PDF format, generated from LaTeX source.
+
+- **[Technical Documentation (PDF)](docs/latex/main.pdf)**: Detailed architecture, API reference, installation guide, and deployment instructions.
+- **Location**: `docs/latex/main.pdf`
+- **Source**: `docs/latex/` (compile with `pdflatex main.tex`)
 
 ## 📜 Credits
 

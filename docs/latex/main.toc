@@ -7,35 +7,36 @@
 \contentsline {chapter}{\numberline {2}Architecture}{4}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Global Architecture}{4}{section.2.1}%
 \contentsline {section}{\numberline {2.2}Components}{4}{section.2.2}%
-\contentsline {section}{\numberline {2.3}Service Ports}{4}{section.2.3}%
-\contentsline {chapter}{\numberline {3}Technical Specifications}{5}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Technology Stack}{5}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Developed Modules}{5}{section.3.2}%
-\contentsline {chapter}{\numberline {4}Code Excerpts}{6}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Prometheus Metrics}{6}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Health Check Endpoint}{6}{section.4.2}%
-\contentsline {chapter}{\numberline {5}ELK Configuration}{7}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Logstash Pipeline}{7}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Elasticsearch Index Mapping}{7}{section.5.2}%
-\contentsline {chapter}{\numberline {6}Data Models}{8}{chapter.6}%
-\contentsline {section}{\numberline {6.1}MongoDB Collections}{8}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Redis Keys}{8}{section.6.2}%
-\contentsline {chapter}{\numberline {7}Installation Guide}{9}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Prerequisites}{9}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Quick Start}{9}{section.7.2}%
-\contentsline {section}{\numberline {7.3}Verification}{9}{section.7.3}%
-\contentsline {chapter}{\numberline {8}User Guide}{10}{chapter.8}%
-\contentsline {section}{\numberline {8.1}Dashboard}{10}{section.8.1}%
-\contentsline {section}{\numberline {8.2}File Upload}{10}{section.8.2}%
-\contentsline {section}{\numberline {8.3}Search}{10}{section.8.3}%
-\contentsline {section}{\numberline {8.4}Live Logs}{10}{section.8.4}%
-\contentsline {section}{\numberline {8.5}Grafana Access}{10}{section.8.5}%
-\contentsline {chapter}{\numberline {9}Testing and Validation}{11}{chapter.9}%
-\contentsline {section}{\numberline {9.1}API Tests}{11}{section.9.1}%
-\contentsline {section}{\numberline {9.2}Validation Checklist}{11}{section.9.2}%
-\contentsline {chapter}{\numberline {10}Challenges and Solutions}{12}{chapter.10}%
-\contentsline {chapter}{\numberline {11}Future Improvements}{13}{chapter.11}%
-\contentsline {chapter}{\numberline {12}Conclusion}{14}{chapter.12}%
-\contentsline {chapter}{\numberline {13}Appendices}{15}{chapter.13}%
-\contentsline {section}{\numberline {13.1}API Reference}{15}{section.13.1}%
-\contentsline {section}{\numberline {13.2}References}{15}{section.13.2}%
+\contentsline {section}{\numberline {2.3}Service Ports}{5}{section.2.3}%
+\contentsline {chapter}{\numberline {3}Technical Specifications}{6}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Technology Stack}{6}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Developed Modules}{6}{section.3.2}%
+\contentsline {chapter}{\numberline {4}Code Excerpts}{7}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Prometheus Metrics}{7}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Health Check Endpoint}{7}{section.4.2}%
+\contentsline {chapter}{\numberline {5}ELK Configuration}{8}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Logstash Pipeline}{8}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Elasticsearch Index Mapping}{8}{section.5.2}%
+\contentsline {chapter}{\numberline {6}Data Models}{9}{chapter.6}%
+\contentsline {section}{\numberline {6.1}MongoDB Collections}{9}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Redis Keys}{9}{section.6.2}%
+\contentsline {chapter}{\numberline {7}Installation Guide}{10}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Prerequisites}{10}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Quick Start}{10}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Verification}{10}{section.7.3}%
+\contentsline {chapter}{\numberline {8}User Guide}{11}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Dashboard}{11}{section.8.1}%
+\contentsline {section}{\numberline {8.2}File Upload}{12}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Search}{12}{section.8.3}%
+\contentsline {section}{\numberline {8.4}Live Logs}{13}{section.8.4}%
+\contentsline {section}{\numberline {8.5}Grafana Access}{13}{section.8.5}%
+\contentsline {section}{\numberline {8.6}Kibana Visualization}{13}{section.8.6}%
+\contentsline {chapter}{\numberline {9}Testing and Validation}{15}{chapter.9}%
+\contentsline {section}{\numberline {9.1}API Tests}{15}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Validation Checklist}{15}{section.9.2}%
+\contentsline {chapter}{\numberline {10}Challenges and Solutions}{16}{chapter.10}%
+\contentsline {chapter}{\numberline {11}Future Improvements}{17}{chapter.11}%
+\contentsline {chapter}{\numberline {12}Conclusion}{18}{chapter.12}%
+\contentsline {chapter}{\numberline {13}Appendices}{19}{chapter.13}%
+\contentsline {section}{\numberline {13.1}API Reference}{19}{section.13.1}%
+\contentsline {section}{\numberline {13.2}References}{19}{section.13.2}%

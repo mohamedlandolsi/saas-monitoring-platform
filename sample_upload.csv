@@ -1,0 +1,21 @@
+timestamp,level,endpoint,status_code,response_time_ms,message,client_ip,user_id
+2026-01-04T10:17:11.258062Z,INFO,/api/users,200,247.34,User login success,192.168.1.108,user_825
+2026-01-04T10:12:11.258062Z,ERROR,/api/orders,500,394.16,Null pointer exception,192.168.1.59,user_130
+2026-01-04T10:07:11.258062Z,WARNING,/api/login,429,210.69,Rate limit approaching,192.168.1.80,user_791
+2026-01-04T10:02:11.258062Z,ERROR,/api/search,500,279.95,Null pointer exception,192.168.1.92,user_745
+2026-01-04T09:57:11.258062Z,WARNING,/api/search,429,291.74,High latency detected,192.168.1.15,user_599
+2026-01-04T09:52:11.258062Z,ERROR,/api/stats,500,248.07,Null pointer exception,192.168.1.215,user_738
+2026-01-04T09:47:11.258062Z,WARNING,/api/users,429,309.2,High latency detected,192.168.1.156,user_171
+2026-01-04T09:42:11.258062Z,WARNING,/api/orders,429,371.74,Rate limit approaching,192.168.1.75,user_496
+2026-01-04T09:37:11.258062Z,WARNING,/api/search,429,275.52,Rate limit approaching,192.168.1.202,user_906
+2026-01-04T09:32:11.258062Z,WARNING,/api/users,429,417.04,Rate limit approaching,192.168.1.9,user_208
+2026-01-04T09:27:11.258062Z,ERROR,/api/login,500,459.91,Authentication failed,192.168.1.206,user_889
+2026-01-04T09:22:11.258062Z,WARNING,/api/login,429,481.85,High latency detected,192.168.1.148,user_753
+2026-01-04T09:17:11.258062Z,ERROR,/api/orders,500,98.71,Authentication failed,192.168.1.254,user_376
+2026-01-04T09:12:11.258062Z,WARNING,/api/stats,429,75.35,High latency detected,192.168.1.35,user_965
+2026-01-04T09:07:11.258062Z,WARNING,/api/stats,429,441.03,Rate limit approaching,192.168.1.254,user_349
+2026-01-04T09:02:11.258062Z,WARNING,/api/users,429,62.62,Rate limit approaching,192.168.1.195,user_660
+2026-01-04T08:57:11.258062Z,ERROR,/api/login,500,112.3,Database timeout,192.168.1.215,user_497
+2026-01-04T08:52:11.258062Z,WARNING,/api/login,429,471.17,High latency detected,192.168.1.56,user_321
+2026-01-04T08:47:11.258062Z,WARNING,/api/users,429,325.37,High latency detected,192.168.1.109,user_273
+2026-01-04T08:42:11.258062Z,WARNING,/api/orders,429,254.72,High latency detected,192.168.1.211,user_653

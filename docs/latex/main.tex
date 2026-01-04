@@ -99,7 +99,7 @@
         \node[draw=primaryblue, line width=2pt, rounded corners=10pt, 
               minimum width=5cm, minimum height=2cm, 
               fill=primaryblue!10] {
-            \textcolor{primaryblue}{\LARGE\bfseries SaaS Monitor}
+            \textcolor{primaryblue}{\LARGE\bfseries Mini-Project}
         };
     \end{tikzpicture}
     
@@ -120,8 +120,10 @@
     \vspace{1.5cm}
     
     \begin{tabular}{ll}
-        \textbf{Version:} & 1.0 \\
-        \textbf{Date:} & \today \\
+        \textbf{Author:} & Mohamed Landolsi \\
+        \textbf{Email:} & \url{mohamedlandolsi300@gmail.com} \\
+        \textbf{Class:} & 3GLA \\
+        \textbf{Repository:} & \url{https://github.com/mohamedlandolsi/saas-monitoring-platform} \\
         \textbf{Institution:} & IT Business School \\
         \textbf{Scenario:} & D - SaaS Web Application \\
     \end{tabular}
@@ -173,32 +175,7 @@ We selected \textbf{Scenario D: SaaS Application} - a monitoring platform for a 
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-    node distance=1cm,
-    box/.style={rectangle, draw=primaryblue, fill=primaryblue!10, 
-                minimum width=2cm, minimum height=0.7cm, 
-                text centered, rounded corners=3pt, font=\scriptsize},
-    arrow/.style={->, >=stealth, thick, primaryblue}
-]
-
-\node[box] (browser) {Browser};
-\node[box, below=of browser] (flask) {Flask (5000)};
-\node[box, below left=1cm and 0.5cm of flask] (logstash) {Logstash};
-\node[box, below=of flask] (es) {Elasticsearch};
-\node[box, below right=1cm and 0.5cm of flask] (kibana) {Kibana};
-\node[box, left=1.5cm of es] (mongodb) {MongoDB};
-\node[box, right=1.5cm of es] (redis) {Redis};
-\node[box, below=of es] (prometheus) {Prometheus};
-
-\draw[arrow] (browser) -- (flask);
-\draw[arrow] (flask) -- (es);
-\draw[arrow] (flask) -- (mongodb);
-\draw[arrow] (flask) -- (redis);
-\draw[arrow] (logstash) -- (es);
-\draw[arrow] (kibana) -- (es);
-\draw[arrow] (prometheus) -- (flask);
-
-\end{tikzpicture}
+\includegraphics[width=1.0\textwidth]{figures/system-architecture-diagram.png}
 \caption{System Architecture}
 \end{figure}
 
@@ -409,17 +386,56 @@ curl http://localhost:5000/metrics    # Test metrics
 \section{Dashboard}
 Access \texttt{http://localhost:5000} to view KPIs: total logs, error rate, average response time, slowest endpoints.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/dashboard.png}
+\caption{Main Dashboard}
+\end{figure}
+
 \section{File Upload}
 Navigate to Upload page, drag and drop CSV/JSON files, monitor progress, view record count on completion.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/file-upload.png}
+\caption{File Upload}
+\end{figure}
 
 \section{Search}
 Use search box for keyword search, apply filters (level, time, status code), save frequent searches.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/search.png}
+\caption{Search Interface}
+\end{figure}
+
 \section{Live Logs}
 Access via green ``Live'' button. Features: pause/resume, level filter, auto-scroll, desktop notifications for errors.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/live-logs.png}
+\caption{Live Logs}
+\end{figure}
+
 \section{Grafana Access}
 URL: \texttt{http://localhost:3000}, credentials: admin/admin123. Dashboard: SaaS Monitoring Overview.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/grafana-dashboard.png}
+\caption{Grafana Dashboard}
+\end{figure}
+
+\section{Kibana Visualization}
+Access \texttt{http://localhost:5601} to explore raw logs and create custom visualizations.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/kibana-dashboard.png}
+\caption{Kibana Dashboard}
+\end{figure}
 
 % ============================================================================
 \chapter{Testing and Validation}

@@ -382,9 +382,23 @@
                 const response = await fetch('/api/health');
                 const data = await response.json();
                 
-                updateStatus('es-status', data.elasticsearch);
-                updateStatus('mongo-status', data.mongodb);
-                updateStatus('redis-status', data.redis);
+                // Function to check if status is considered online
+                const isOnline = (serviceObj) => {
+                    // Handle new structure (nested object with status) or old structure (boolean)
+                    if (serviceObj && typeof serviceObj === 'object') {
+                         return ['healthy', 'degraded'].includes(serviceObj.status);
+                    }
+                    return !!serviceObj;
+                };
+
+                // Get service objects from checks or root (backward compatibility)
+                const es = data.checks ? data.checks.elasticsearch : data.elasticsearch;
+                const mongo = data.checks ? data.checks.mongodb : data.mongodb;
+                const redis = data.checks ? data.checks.redis : data.redis;
+                
+                updateStatus('es-status', isOnline(es));
+                updateStatus('mongo-status', isOnline(mongo));
+                updateStatus('redis-status', isOnline(redis));
                 
             } catch (error) {
                 console.error('Failed to fetch health status:', error);

@@ -54,8 +54,8 @@ services:
       - "5050:5000"   # TCP streaming input
       - "8080:8080"   # HTTP webhook input
     environment:
-      # Logstash 7.x works better with lower memory
-      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+      # Logstash 7.x works better with lower memory (increased for stability)
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
       # Reduce workers and batch size
       - PIPELINE_WORKERS=1
       - PIPELINE_BATCH_SIZE=125
@@ -68,11 +68,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '1.0'
+          memory: 1024M
         reservations:
-          cpus: '0.1'
-          memory: 256M
+          cpus: '0.25'
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9600/_node/stats || exit 1"]
       interval: 60s

@@ -2940,7 +2940,7 @@ def after_request(response):
         if redis_client and request.path.startswith('/api/'):
             try:
                 monitor = PerformanceMonitor(redis_client)
-                monitor.record_api_time(request.path, duration)
+                monitor.record_api_time(request.path, duration_ms)
             except Exception as e:
                 app.logger.error(f"Error recording API metric: {e}")
     

@@ -14,11 +14,9 @@ import random
 import argparse
 import os
 from datetime import datetime, timedelta
-from faker import Faker
 from collections import defaultdict
-
-# Initialize Faker
-fake = Faker()
+# Initialize Faker removed
+# fake = Faker()
 
 # Log types
 LOG_TYPES = ['web_request', 'database_query']
@@ -155,6 +153,24 @@ TENANTS = [f'tenant_{i}' for i in range(1, 51)]
 user_sessions = {}  # Track active user sessions
 error_burst_probability = 0.0  # Probability of error burst
 last_error_burst_time = None
+
+
+
+def generate_ipv4():
+    """Generate a random IPv4 address."""
+    return f"{random.randint(1, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+
+
+def generate_user_agent():
+    """Generate a random user agent."""
+    agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+    ]
+    return random.choice(agents)
 
 
 def parse_arguments():
@@ -334,7 +350,7 @@ def generate_log_entry(timestamp=None, days_range=30, force_error=False):
     level = random.choices(LOG_LEVELS, weights=level_weights)[0]
     
     # Client IP
-    client_ip = fake.ipv4()
+    client_ip = generate_ipv4()
     
     # User ID - favor active sessions (90% authenticated during peak hours)
     hour = timestamp.hour
@@ -384,7 +400,7 @@ def generate_log_entry(timestamp=None, days_range=30, force_error=False):
     response_time_ms = generate_response_time(endpoint, status_code, bool(sql_query), query_duration_ms)
     
     # User agent
-    user_agent = fake.user_agent()
+    user_agent = generate_user_agent()
     
     # Message based on status code
     message = random.choice(STATUS_MESSAGES[status_code])

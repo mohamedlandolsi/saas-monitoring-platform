@@ -11,50 +11,7 @@ The SaaS Monitoring Platform is built on a microservices architecture using cont
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-    node distance=1.5cm,
-    box/.style={rectangle, draw=primaryblue, fill=primaryblue!10, 
-                minimum width=2.5cm, minimum height=1cm, 
-                text centered, rounded corners=5pt, font=\small},
-    db/.style={cylinder, draw=secondarypurple, fill=secondarypurple!10,
-               shape aspect=0.5, minimum width=2cm, minimum height=1.2cm,
-               text centered, font=\small},
-    arrow/.style={->, >=stealth, thick, primaryblue}
-]
-
-% User layer
-\node[box] (browser) {Browser/Client};
-
-% Presentation layer
-\node[box, below=of browser] (flask) {Flask Web App};
-\node[box, right=2cm of flask] (socketio) {Socket.IO};
-
-% ELK Stack
-\node[box, below left=2cm and 1cm of flask] (logstash) {Logstash};
-\node[box, below=of flask] (elasticsearch) {Elasticsearch};
-\node[box, below right=2cm and 1cm of flask] (kibana) {Kibana};
-
-% Data stores
-\node[db, below left=1.5cm and 0cm of logstash] (mongodb) {MongoDB};
-\node[db, below right=1.5cm and 0cm of kibana] (redis) {Redis};
-
-% Observability
-\node[box, below=of elasticsearch] (prometheus) {Prometheus};
-\node[box, right=1.5cm of prometheus] (grafana) {Grafana};
-\node[box, left=1.5cm of prometheus] (jaeger) {Jaeger};
-
-% Connections
-\draw[arrow] (browser) -- (flask);
-\draw[arrow] (browser) -| (socketio);
-\draw[arrow] (flask) -- (elasticsearch);
-\draw[arrow] (flask) -| (mongodb);
-\draw[arrow] (flask) -| (redis);
-\draw[arrow] (logstash) -- (elasticsearch);
-\draw[arrow] (kibana) -- (elasticsearch);
-\draw[arrow] (prometheus) -- (flask);
-\draw[arrow] (grafana) -- (prometheus);
-
-\end{tikzpicture}
+\includegraphics[width=1.0\textwidth]{figures/system-architecture-diagram.png}
 \caption{Global System Architecture}
 \end{figure}
 
